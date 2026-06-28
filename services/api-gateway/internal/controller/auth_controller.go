@@ -24,6 +24,15 @@ func NewAuthController(log *zap.Logger, authClient *client.AuthClient) *AuthCont
 	}
 }
 
+// SignUp godoc
+// @Summary Sign up
+// @Description Register a new user account.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body dto.SignUpRequest true "Sign up request"
+// @Success 200 {object} string
+// @Router /api/v1/signup [post]
 func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 	signUpReq := dto.SignUpRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&signUpReq); err != nil {
@@ -42,6 +51,15 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 	utils.SuccessResponse(w, http.StatusOK, "Signed Up", &response.Data)
 }
 
+// SignIn godoc
+// @Summary Sign in
+// @Description Authenticate a user and set the authentication cookie.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body dto.SignInRequest true "Sign in request"
+// @Success 200 {object} utils.SwaggerSuccessResponse
+// @Router /api/v1/signin [post]
 func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 	signUpReq := dto.SignInRequest{}
 	if err := json.NewDecoder(r.Body).Decode(&signUpReq); err != nil {
@@ -71,6 +89,13 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 	utils.SuccessResponse[any](w, http.StatusOK, "Signed in", nil)
 }
 
+// SignOut godoc
+// @Summary Sign out
+// @Description Sign out the current user by clearing the authentication cookie.
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} utils.SwaggerSuccessResponse
+// @Router /api/v1/signout [post]
 func (c *AuthController) SignOut(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -86,6 +111,13 @@ func (c *AuthController) SignOut(w http.ResponseWriter, r *http.Request) {
 	utils.SuccessResponse[any](w, http.StatusOK, "Signed out", nil)
 }
 
+// GetSession godoc
+// @Summary Get session
+// @Description Get the currently authenticated user's session.
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} types.Session
+// @Router /api/v1/session [get]
 func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {
 	sessionResonse, err := c.authClient.GetSession(r.Context(), r)
 	if err != nil {

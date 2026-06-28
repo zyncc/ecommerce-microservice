@@ -3,6 +3,9 @@ package server
 import (
 	"net/http"
 
+	httpSwagger "github.com/swaggo/http-swagger"
+	_ "github.com/zyncc/ecommerce-microservice/services/api-gateway/docs"
+
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/controller"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/middleware"
@@ -41,6 +44,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		utils.SuccessResponse[any](w, http.StatusOK, "api gateway healthy", nil)
 	})
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), //The url pointing to API definition
+	))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.HandleFunc("POST /signup", authController.SignUp)

@@ -12,6 +12,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// @title E-Commerce API
+// @version 1.0
+// @description REST API for the E-Commerce microservices.
+// @host localhost:8080
+// @BasePath /api/v1
 func main() {
 	env, err := config.LoadEnv()
 	if err != nil {

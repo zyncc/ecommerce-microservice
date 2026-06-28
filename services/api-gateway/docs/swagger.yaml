@@ -1,0 +1,118 @@
+definitions:
+  dto.SignInRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  dto.SignUpRequest:
+    properties:
+      confirm_password:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  types.Session:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  utils.SwaggerSuccessResponse:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+      success:
+        type: boolean
+      ts:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/v1/session:
+    get:
+      description: Get the currently authenticated user's session.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.Session'
+      summary: Get session
+      tags:
+      - Auth
+  /api/v1/signin:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate a user and set the authentication cookie.
+      parameters:
+      - description: Sign in request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SignInRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.SwaggerSuccessResponse'
+      summary: Sign in
+      tags:
+      - Auth
+  /api/v1/signout:
+    post:
+      description: Sign out the current user by clearing the authentication cookie.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.SwaggerSuccessResponse'
+      summary: Sign out
+      tags:
+      - Auth
+  /api/v1/signup:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account.
+      parameters:
+      - description: Sign up request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SignUpRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Sign up
+      tags:
+      - Auth
+swagger: "2.0"

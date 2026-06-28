@@ -10,6 +10,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
 
+  redis:
+    image: redis:8.8.0
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
   kafka:
     image: confluentinc/cp-kafka:8.2.2
     container_name: kafka
@@ -102,6 +109,7 @@ volumes:
   postgres_data:
   loki_data:
   grafana_data:
+  redis_data:
 
 networks:
   observability:
