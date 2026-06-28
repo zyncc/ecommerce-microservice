@@ -1,0 +1,49 @@
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "name"
+    values = ["auth-service"]
+  }
+}
+
+discovery.relabel "add_labels" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    target_label  = "container"
+    regex         = "/(.*)"
+  }
+}
+
+loki.source.docker "app_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.add_labels.output   // use relabeled targets
+  forward_to = [loki.process.parse_json.receiver]
+}
+
+loki.process "parse_json" {
+  stage.json {
+    expressions = {
+      level = "level",
+    }
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  stage.timestamp {
+    source = "timestamp"
+    format = "2006-01-02T15:04:05.999Z0700"
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
