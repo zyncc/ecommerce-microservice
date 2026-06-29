@@ -3,7 +3,7 @@ discovery.docker "containers" {
 
   filter {
     name   = "name"
-    values = ["auth-service"]
+    values = ["api-gateway", "auth-service", "product-service"]
   }
 }
 

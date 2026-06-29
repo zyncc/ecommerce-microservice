@@ -5,12 +5,13 @@ COPY go.work go.work.sum ./
 
 COPY services/api-gateway ./services/api-gateway
 COPY services/auth ./services/auth
+COPY services/product ./services/product
 
 RUN go work sync
 
 WORKDIR /app/services/auth
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /auth-service ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /auth-service ./cmd/api
 
 FROM alpine:3.23.5
 
