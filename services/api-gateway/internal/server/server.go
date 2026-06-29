@@ -12,22 +12,19 @@ import (
 )
 
 type Server struct {
-	port int
-	log  *zap.Logger
-	env  *config.EnvConfig
+	log *zap.Logger
+	env *config.EnvConfig
 }
 
 func NewServer(log *zap.Logger, env *config.EnvConfig) *http.Server {
-	port := env.Port
 	NewServer := &Server{
-		port,
 		log,
 		env,
 	}
 
 	// Declare Server config
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", NewServer.port),
+		Addr:         fmt.Sprintf(":%d", env.Port),
 		Handler:      NewServer.RegisterRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,

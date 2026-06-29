@@ -91,18 +91,44 @@ services:
     networks:
       - observability
 
-  # auth-service:
-  #   build:
-  #     context: .
-  #     dockerfile: ./services/auth/Dockerfile
-  #   container_name: auth-service
-  #   env_file:
-  #     - ./services/auth/.env.docker
-  #   ports:
-  #     - "8081:8081"
-  #   depends_on:
-  #     - kafka
-  #     - postgres
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: api-gateway
+    env_file:
+      - ./services/api-gateway/.env.docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - product-service
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./services/auth/Dockerfile
+    container_name: auth-service
+    env_file:
+      - ./services/auth/.env.docker
+    ports:
+      - "8081:8081"
+    depends_on:
+      - kafka
+      - postgres
+
+  product-service:
+    build:
+      context: .
+      dockerfile: ./services/product/Dockerfile
+    container_name: product-service
+    env_file:
+      - ./services/product/.env.docker
+    ports:
+      - "8082:8082"
+    depends_on:
+      - kafka
+      - postgres
 
 volumes:
   kafka_kraft:

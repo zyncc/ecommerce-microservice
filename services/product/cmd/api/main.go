@@ -7,9 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/config"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/server"
-
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/config"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/server"
 	"go.uber.org/zap"
 )
 
@@ -18,8 +17,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log := config.NewLogger()
-	server := server.NewServer(log, env)
+	log := config.NewLogger(env.AppEnv)
+
+	pool, err := config.InitDB(env.DatabaseURL)
+	if err != nil {
+		log.Fatal("failed to connect to database", zap.Error(err))
+	}
+
+	server := server.NewServer(log, env, pool)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
@@ -28,14 +33,9 @@ func main() {
 	go gracefulShutdown(server, done, log)
 
 	log.Info("Server running", zap.Int("port", env.Port))
-	err = server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.Fatal("http server error", zap.Error(err))
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal("Failed to start server", zap.Error(err))
 	}
-
-	// Wait for the graceful shutdown to complete
-	<-done
-	log.Info("Graceful shutdown complete.")
 }
 
 func gracefulShutdown(apiServer *http.Server, done chan bool, log *zap.Logger) {
@@ -54,7 +54,7 @@ func gracefulShutdown(apiServer *http.Server, done chan bool, log *zap.Logger) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := apiServer.Shutdown(ctx); err != nil {
-		log.Info("Server forced to shutdown", zap.Error(err))
+		log.Error("Server forced to shutdown with error", zap.Error(err))
 	}
 
 	log.Info("Server exiting")

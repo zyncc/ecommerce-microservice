@@ -17,20 +17,20 @@ import (
 )
 
 type AuthClient struct {
-	log *zap.Logger
-	env *config.EnvConfig
+	log        *zap.Logger
+	env        *config.EnvConfig
+	httpClient *http.Client
 }
 
-func NewAuthClient(log *zap.Logger, env *config.EnvConfig) *AuthClient {
+func NewAuthClient(log *zap.Logger, env *config.EnvConfig, httpClient *http.Client) *AuthClient {
 	return &AuthClient{
 		log,
 		env,
+		httpClient,
 	}
 }
 
 func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (*utils.Success[string], error) {
-	client := http.Client{}
-
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		c.log.Error("failed to marshal json data", zap.Error(err))
@@ -45,7 +45,7 @@ func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (*utils
 
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := client.Do(request)
+	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.log.Error("failed to send http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
@@ -68,8 +68,6 @@ func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (*utils
 }
 
 func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils.Success[dto.SignInResponse], error) {
-	client := http.Client{}
-
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		c.log.Error("failed to marshal json data", zap.Error(err))
@@ -84,7 +82,7 @@ func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils
 
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := client.Do(request)
+	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.log.Error("failed to send http request", zap.Error(err))
 		return nil, errors.New("auth service error: failed to send request")
@@ -107,7 +105,6 @@ func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils
 }
 
 func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Success[types.Session], error) {
-	client := &http.Client{}
 	request, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/api/v1/session", c.env.AuthServiceURL), nil)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
@@ -121,7 +118,7 @@ func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Su
 
 	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokenString))
 
-	response, err := client.Do(request)
+	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.log.Error("failed to send http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
@@ -143,7 +140,6 @@ func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Su
 }
 
 func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (*utils.Success[string], error) {
-	client := &http.Client{}
 	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/v1/refresh", c.env.AuthServiceURL), nil)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
@@ -154,7 +150,7 @@ func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (*utils.
 		request.AddCookie(cookie)
 	}
 
-	response, err := client.Do(request)
+	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.log.Error("failed to send http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong

@@ -21,7 +21,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.ClientIPFromRemoteAddr)
-	r.Use(chimiddleware.Logger)
+	r.Use(middleware.Logger(s.log))
 	r.Use(chimiddleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
@@ -32,11 +32,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:           300,
 	}))
 
+	httpClient := &http.Client{}
 	// clients
-	authClient := client.NewAuthClient(s.log, s.env)
+	authClient := client.NewAuthClient(s.log, s.env, httpClient)
+	productClient := client.NewProductClient(s.log, s.env, httpClient)
 
 	// controller
 	authController := controller.NewAuthController(s.log, authClient)
+	productController := controller.NewProductController(s.log, productClient)
 
 	// middleware
 	authMiddleware := middleware.NewAuthMiddleware(s.log, authClient)
@@ -54,6 +57,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.HandleFunc("POST /signin", authController.SignIn)
 		r.HandleFunc("POST /refresh", authController.RefreshToken)
 
+		r.HandleFunc("GET /product", productController.GetAllProducts)
+
 		// authenticated routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.RequireAuth)
@@ -64,6 +69,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// admin routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.RequireAdmin)
+			r.HandleFunc("POST /product", productController.CreateProduct)
 		})
 	})
 

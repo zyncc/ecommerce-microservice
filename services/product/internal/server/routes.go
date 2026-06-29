@@ -7,10 +7,10 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
-	"github.com/zyncc/ecommerce-microservice/services/auth/internal/controller"
-	"github.com/zyncc/ecommerce-microservice/services/auth/internal/repository"
-	"github.com/zyncc/ecommerce-microservice/services/auth/internal/service"
-	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/middleware"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/controller"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/repository"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/service"
+	"github.com/zyncc/ecommerce-microservice/services/product/pkg/middleware"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -30,24 +30,22 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Use(chimiddleware.Recoverer)
 
 	// repository
-	userRepo := repository.NewUserRepository(s.log, s.pool)
+	productRepo := repository.NewProductRepository(s.log, s.pool)
 
 	// services
-	authService := service.NewAuthService(s.log, userRepo, s.kafkaProducer, s.env)
+	productService := service.NewProductService(s.log, productRepo)
 
 	// controllers
-	authController := controller.NewAuthController(s.log, authService)
+	productController := controller.NewProductController(s.log, productService)
 
 	// routes
 	r.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		utils.SuccessResponse[any](w, http.StatusOK, "auth service healthy", nil)
+		utils.SuccessResponse[any](w, http.StatusOK, "product service healthy", nil)
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.HandleFunc("POST /signup", authController.SignUp)
-		r.HandleFunc("POST /signin", authController.SignIn)
-		r.HandleFunc("POST /refresh", authController.RefreshToken)
-		r.HandleFunc("GET /session", authController.GetSession)
+		r.HandleFunc("POST /product", productController.CreateProduct)
+		r.HandleFunc("GET /product", productController.GetAllProducts)
 	})
 
 	return r

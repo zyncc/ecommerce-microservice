@@ -150,11 +150,11 @@ func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Success 200 {object} string
 // @Failure 500 {object} utils.Error
-// @Router /api/v1/refresh [get]
+// @Router /api/v1/refresh [post]
 func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	resp, err := c.authClient.RefreshToken(r.Context(), r)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		utils.ErrorResponse(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
