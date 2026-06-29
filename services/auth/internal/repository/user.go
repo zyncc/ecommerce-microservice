@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -85,4 +86,40 @@ func (r *UserRepository) FindUserByID(ctx context.Context, id uuid.UUID) (*model
 	}
 
 	return &user, nil
+}
+
+func (r *UserRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, token string) error {
+	id := uuid.New()
+
+	_, err := r.db.Exec(ctx, "INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)", id, userID, token, time.Now().Add(24*7*time.Hour))
+	if err != nil {
+		r.logger.Error("failed to create refresh token", zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+func (r *UserRepository) FindRefreshToken(ctx context.Context, token string) (*models.RefreshToken, error) {
+	var refreshToken models.RefreshToken
+	r.logger.Info("token hash", zap.String("token", token))
+	err := r.db.QueryRow(
+		ctx,
+		"SELECT id, user_id, token_hash, expires_at FROM refresh_tokens WHERE token_hash = $1",
+		token,
+	).Scan(
+		&refreshToken.ID,
+		&refreshToken.UserID,
+		&refreshToken.TokenHash,
+		&refreshToken.ExpiresAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		r.logger.Error("refresh token not found", zap.Error(err))
+		return nil, errors.New("refresh token not found")
+	} else if err != nil {
+		r.logger.Error("failed to find refresh token", zap.Error(err))
+		return nil, err
+	}
+
+	return &refreshToken, nil
 }

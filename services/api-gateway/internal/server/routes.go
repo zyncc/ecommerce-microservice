@@ -52,14 +52,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.HandleFunc("POST /signup", authController.SignUp)
 		r.HandleFunc("POST /signin", authController.SignIn)
+		r.HandleFunc("POST /refresh", authController.RefreshToken)
 
 		// authenticated routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.RequireAuth)
+			r.HandleFunc("GET /session", authController.GetSession)
+			r.HandleFunc("POST /signout", authController.SignOut)
 		})
 
-		r.HandleFunc("GET /session", authController.GetSession)
-		r.HandleFunc("POST /signout", authController.SignOut)
 		// admin routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.RequireAdmin)

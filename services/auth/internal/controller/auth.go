@@ -57,13 +57,33 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwtToken, err := c.svc.SignIn(r.Context(), req)
+	accessToken, refreshToken, err := c.svc.SignIn(r.Context(), req)
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	utils.SuccessResponse[string](w, http.StatusCreated, "Signed in", &jwtToken)
+	utils.SuccessResponse(w, http.StatusCreated, "Signed in", &dto.SignInResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	})
+}
+
+func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	refreshTokenCookie, err := r.Cookie("refresh_token")
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusUnauthorized, "refresh token not found")
+		return
+	}
+
+	refreshToken := refreshTokenCookie.Value
+	accessToken, err := c.svc.RefreshToken(r.Context(), refreshToken)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	utils.SuccessResponse(w, http.StatusOK, "Token refreshed", &accessToken)
 }
 
 func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {

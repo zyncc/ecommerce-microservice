@@ -6,15 +6,6 @@ import (
 	"time"
 )
 
-// generic type for swagger docs
-type SwaggerSuccessResponse struct {
-	Code      int       `json:"code"`
-	Success   bool      `json:"success"`
-	Message   string    `json:"message"`
-	Data      any       `json:"data,omitempty"`
-	Timestamp time.Time `json:"ts"`
-}
-
 type Success[T any] struct {
 	Code      int       `json:"code"`
 	Success   bool      `json:"success"`

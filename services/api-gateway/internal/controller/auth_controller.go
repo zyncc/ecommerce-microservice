@@ -8,6 +8,7 @@ import (
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
+	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/types"
 
 	"go.uber.org/zap"
 )
@@ -32,6 +33,7 @@ func NewAuthController(log *zap.Logger, authClient *client.AuthClient) *AuthCont
 // @Produce json
 // @Param request body dto.SignUpRequest true "Sign up request"
 // @Success 200 {object} string
+// @Failure 500 {object} utils.Error
 // @Router /api/v1/signup [post]
 func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 	signUpReq := dto.SignUpRequest{}
@@ -58,7 +60,8 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 // @Accept json
 // @Produce json
 // @Param request body dto.SignInRequest true "Sign in request"
-// @Success 200 {object} utils.SwaggerSuccessResponse
+// @Success 200 {object} string
+// @Failure 500 {object} utils.Error
 // @Router /api/v1/signin [post]
 func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 	signUpReq := dto.SignInRequest{}
@@ -76,14 +79,25 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     "auth_token",
-		Value:    *response.Data,
+		Name:     "access_token",
+		Value:    response.Data.AccessToken,
+		Path:     "/",
+		Domain:   "localhost",
+		Secure:   false,
+		HttpOnly: false,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(30 * time.Minute),
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    response.Data.RefreshToken,
 		Path:     "/",
 		Domain:   "localhost",
 		Secure:   false,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(24 * time.Hour),
+		Expires:  time.Now().Add(24 * 7 * time.Hour),
 	})
 
 	utils.SuccessResponse[any](w, http.StatusOK, "Signed in", nil)
@@ -94,7 +108,7 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 // @Description Sign out the current user by clearing the authentication cookie.
 // @Tags Auth
 // @Produce json
-// @Success 200 {object} utils.SwaggerSuccessResponse
+// @Success 200 {object} string
 // @Router /api/v1/signout [post]
 func (c *AuthController) SignOut(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
@@ -117,14 +131,43 @@ func (c *AuthController) SignOut(w http.ResponseWriter, r *http.Request) {
 // @Tags Auth
 // @Produce json
 // @Success 200 {object} types.Session
+// @Failure 500 {object} utils.Error
 // @Router /api/v1/session [get]
 func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {
-	sessionResonse, err := c.authClient.GetSession(r.Context(), r)
-	if err != nil {
-		c.log.Error("failed to get session", zap.Error(err))
-		utils.ErrorResponse(w, sessionResonse.Code, sessionResonse.Message)
+	session, ok := r.Context().Value(types.SessionContextKey).(types.Session)
+	if !ok {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Session not found")
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Session Found", sessionResonse.Data)
+	utils.SuccessResponse(w, http.StatusOK, "Session Found", &session)
+}
+
+// RefreshToken godoc
+// @Summary Refresh Token
+// @Description Refresh the access token by by generating a new one
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} string
+// @Failure 500 {object} utils.Error
+// @Router /api/v1/refresh [get]
+func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	resp, err := c.authClient.RefreshToken(r.Context(), r)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    *resp.Data,
+		Path:     "/",
+		Domain:   "localhost",
+		Secure:   false,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Expires:  time.Now().Add(30 * time.Minute),
+	})
+
+	utils.SuccessResponse[any](w, http.StatusOK, "Token refreshed", nil)
 }

@@ -32,7 +32,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	userRepo := repository.NewUserRepository(s.log, s.pool)
 
 	// services
-	authService := service.NewAuthService(s.log, userRepo, s.kafkaProducer)
+	authService := service.NewAuthService(s.log, userRepo, s.kafkaProducer, s.env)
 
 	// controllers
 	authController := controller.NewAuthController(s.log, authService)
@@ -45,6 +45,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.HandleFunc("POST /signup", authController.SignUp)
 		r.HandleFunc("POST /signin", authController.SignIn)
+		r.HandleFunc("POST /refresh", authController.RefreshToken)
 		r.HandleFunc("GET /session", authController.GetSession)
 	})
 

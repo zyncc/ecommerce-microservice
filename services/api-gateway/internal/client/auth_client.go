@@ -67,7 +67,7 @@ func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (*utils
 	return &respBody, nil
 }
 
-func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils.Success[string], error) {
+func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils.Success[dto.SignInResponse], error) {
 	client := http.Client{}
 
 	reqBody, err := json.Marshal(req)
@@ -91,7 +91,7 @@ func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils
 	}
 	defer response.Body.Close()
 
-	respBody := utils.Success[string]{}
+	respBody := utils.Success[dto.SignInResponse]{}
 	err = json.NewDecoder(response.Body).Decode(&respBody)
 	if err != nil {
 		c.log.Error("failed to decode response body", zap.Error(err))
@@ -128,7 +128,40 @@ func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Su
 	}
 	defer response.Body.Close()
 
-	respBody := utils.Success[types.Session]{}
+	var respBody utils.Success[types.Session]
+	if err = json.NewDecoder(response.Body).Decode(&respBody); err != nil {
+		c.log.Error("failed to decode response body", zap.Error(err))
+		return nil, utils.ErrSomethingWentWrong
+	}
+
+	if !respBody.Success {
+		c.log.Error("auth service returned error", zap.String("message", respBody.Message))
+		return nil, errors.New(respBody.Message)
+	}
+
+	return &respBody, nil
+}
+
+func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (*utils.Success[string], error) {
+	client := &http.Client{}
+	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/v1/refresh", c.env.AuthServiceURL), nil)
+	if err != nil {
+		c.log.Error("failed to create http request", zap.Error(err))
+		return nil, utils.ErrSomethingWentWrong
+	}
+
+	for _, cookie := range r.Cookies() {
+		request.AddCookie(cookie)
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		c.log.Error("failed to send http request", zap.Error(err))
+		return nil, utils.ErrSomethingWentWrong
+	}
+	defer response.Body.Close()
+
+	var respBody utils.Success[string]
 	if err = json.NewDecoder(response.Body).Decode(&respBody); err != nil {
 		c.log.Error("failed to decode response body", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong

@@ -30,11 +30,10 @@ definitions:
       role:
         type: string
     type: object
-  utils.SwaggerSuccessResponse:
+  utils.Error:
     properties:
       code:
         type: integer
-      data: {}
       message:
         type: string
       success:
@@ -45,6 +44,23 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/v1/refresh:
+    get:
+      description: Refresh the access token by by generating a new one
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.Error'
+      summary: Refresh Token
+      tags:
+      - Auth
   /api/v1/session:
     get:
       description: Get the currently authenticated user's session.
@@ -55,6 +71,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/types.Session'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.Error'
       summary: Get session
       tags:
       - Auth
@@ -76,7 +96,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.SwaggerSuccessResponse'
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.Error'
       summary: Sign in
       tags:
       - Auth
@@ -89,7 +113,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/utils.SwaggerSuccessResponse'
+            type: string
       summary: Sign out
       tags:
       - Auth
@@ -112,6 +136,10 @@ paths:
           description: OK
           schema:
             type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.Error'
       summary: Sign up
       tags:
       - Auth
