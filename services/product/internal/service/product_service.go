@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/repository"
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/repository/model"
 	"github.com/zyncc/ecommerce-microservice/services/product/pkg/types/dto"
@@ -27,6 +28,10 @@ func (s *ProductService) CreateProduct(ctx context.Context, req *dto.CreateProdu
 	})
 }
 
-func (s *ProductService) GetAllProducts(ctx context.Context) ([]*model.Product, error) {
-	return s.repo.FetchAllProducts(ctx)
+func (s *ProductService) GetAllProducts(ctx context.Context, limit, offset int) ([]*model.Product, error) {
+	return s.repo.FetchAllProducts(ctx, limit, offset)
+}
+
+func (s *ProductService) GetProductByID(ctx context.Context, id uuid.UUID) (model.Product, error) {
+	return s.repo.GetProductByID(ctx, id)
 }

@@ -10,7 +10,7 @@ type Success[T any] struct {
 	Code      int       `json:"code"`
 	Success   bool      `json:"success"`
 	Message   string    `json:"message"`
-	Data      *T        `json:"data,omitempty"`
+	Data      T         `json:"data,omitempty"`
 	Timestamp time.Time `json:"ts"`
 }
 
@@ -21,7 +21,7 @@ type Error struct {
 	Timestamp time.Time `json:"ts"`
 }
 
-func SuccessResponse[T any](w http.ResponseWriter, code int, message string, data *T) {
+func SuccessResponse[T any](w http.ResponseWriter, code int, message string, data T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(Success[T]{

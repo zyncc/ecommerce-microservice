@@ -160,7 +160,7 @@ func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
-		Value:    *resp.Data,
+		Value:    resp.Data,
 		Path:     "/",
 		Domain:   "localhost",
 		Secure:   false,

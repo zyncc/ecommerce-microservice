@@ -46,6 +46,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.HandleFunc("POST /product", productController.CreateProduct)
 		r.HandleFunc("GET /product", productController.GetAllProducts)
+		r.HandleFunc("GET /product/{id}", productController.GetProductByID)
 	})
 
 	return r

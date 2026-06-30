@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 	_ "github.com/zyncc/ecommerce-microservice/services/api-gateway/docs"
@@ -32,7 +33,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:           300,
 	}))
 
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+	}
 	// clients
 	authClient := client.NewAuthClient(s.log, s.env, httpClient)
 	productClient := client.NewProductClient(s.log, s.env, httpClient)
@@ -58,6 +61,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.HandleFunc("POST /refresh", authController.RefreshToken)
 
 		r.HandleFunc("GET /product", productController.GetAllProducts)
+		r.HandleFunc("GET /product/{id}", productController.GetProductByID)
 
 		// authenticated routes
 		r.Group(func(r chi.Router) {

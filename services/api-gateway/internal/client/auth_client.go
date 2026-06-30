@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -37,7 +36,12 @@ func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (*utils
 		return nil, utils.ErrSomethingWentWrong
 	}
 
-	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/v1/signup", c.env.AuthServiceURL), bytes.NewReader(reqBody))
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/api/v1/signup", c.env.AuthServiceURL),
+		bytes.NewReader(reqBody),
+	)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
@@ -45,39 +49,50 @@ func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (*utils
 
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := c.httpClient.Do(request)
+	resp, err := c.httpClient.Do(request)
 	if err != nil {
 		c.log.Error("failed to send http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
 	}
-	defer response.Body.Close()
+	defer resp.Body.Close()
 
-	respBody := utils.Success[string]{}
-	err = json.NewDecoder(response.Body).Decode(&respBody)
-	if err != nil {
+	var body utils.Success[string]
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		c.log.Error("failed to decode response body", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
 	}
 
-	if !respBody.Success {
-		c.log.Error("auth service returned error", zap.String("message", respBody.Message))
-		return nil, errors.New(respBody.Message)
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return nil, &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
 	}
 
-	return &respBody, nil
+	return &body, nil
 }
 
 func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils.Success[dto.SignInResponse], error) {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		c.log.Error("failed to marshal json data", zap.Error(err))
-		return nil, errors.New("failed to parse json body")
+		return nil, utils.ErrSomethingWentWrong
 	}
 
-	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/v1/signin", c.env.AuthServiceURL), bytes.NewReader(reqBody))
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/api/v1/signin", c.env.AuthServiceURL),
+		bytes.NewReader(reqBody),
+	)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
-		return nil, errors.New("failed to send http request")
+		return nil, utils.ErrSomethingWentWrong
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -85,27 +100,38 @@ func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (*utils
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		c.log.Error("failed to send http request", zap.Error(err))
-		return nil, errors.New("auth service error: failed to send request")
+		return nil, utils.ErrSomethingWentWrong
 	}
 	defer response.Body.Close()
 
-	respBody := utils.Success[dto.SignInResponse]{}
-	err = json.NewDecoder(response.Body).Decode(&respBody)
-	if err != nil {
+	var body utils.Success[dto.SignInResponse]
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		c.log.Error("failed to decode response body", zap.Error(err))
-		return nil, errors.New("auth service error: failed to parse response body")
+		return nil, utils.ErrSomethingWentWrong
 	}
 
-	if !respBody.Success {
-		c.log.Error("auth service returned error", zap.String("message", respBody.Message))
-		return nil, errors.New(respBody.Message)
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return nil, &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
 	}
 
-	return &respBody, nil
+	return &body, nil
 }
 
 func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Success[types.Session], error) {
-	request, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("%s/api/v1/session", c.env.AuthServiceURL), nil)
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/api/v1/session", c.env.AuthServiceURL),
+		nil,
+	)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
@@ -116,7 +142,7 @@ func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Su
 		return nil, err
 	}
 
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokenString))
+	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -125,22 +151,34 @@ func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (*utils.Su
 	}
 	defer response.Body.Close()
 
-	var respBody utils.Success[types.Session]
-	if err = json.NewDecoder(response.Body).Decode(&respBody); err != nil {
+	var body utils.Success[types.Session]
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		c.log.Error("failed to decode response body", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
 	}
 
-	if !respBody.Success {
-		c.log.Error("auth service returned error", zap.String("message", respBody.Message))
-		return nil, errors.New(respBody.Message)
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return nil, &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
 	}
 
-	return &respBody, nil
+	return &body, nil
 }
 
 func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (*utils.Success[string], error) {
-	request, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("%s/api/v1/refresh", c.env.AuthServiceURL), nil)
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/api/v1/refresh", c.env.AuthServiceURL),
+		nil,
+	)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
@@ -157,16 +195,23 @@ func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (*utils.
 	}
 	defer response.Body.Close()
 
-	var respBody utils.Success[string]
-	if err = json.NewDecoder(response.Body).Decode(&respBody); err != nil {
+	var body utils.Success[string]
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		c.log.Error("failed to decode response body", zap.Error(err))
 		return nil, utils.ErrSomethingWentWrong
 	}
 
-	if !respBody.Success {
-		c.log.Error("auth service returned error", zap.String("message", respBody.Message))
-		return nil, errors.New(respBody.Message)
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return nil, &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
 	}
 
-	return &respBody, nil
+	return &body, nil
 }
