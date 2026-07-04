@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -43,14 +44,17 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := c.authClient.SignUp(r.Context(), &signUpReq)
+	id, err := c.authClient.SignUp(r.Context(), &signUpReq)
 	if err != nil {
-		c.log.Error("failed to sign up", zap.Error(err))
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Signed Up", &response.Data)
+	utils.SuccessResponse(w, http.StatusOK, "Signed Up", id)
 }
 
 // SignIn godoc
@@ -73,14 +77,17 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	response, err := c.authClient.SignIn(r.Context(), &signUpReq)
 	if err != nil {
-		c.log.Error("failed to sign in", zap.Error(err))
-		utils.ErrorResponse(w, http.StatusBadRequest, err.Error())
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
-		Value:    response.Data.AccessToken,
+		Value:    response.AccessToken,
 		Path:     "/",
 		Domain:   "localhost",
 		Secure:   false,
@@ -91,7 +98,7 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
-		Value:    response.Data.RefreshToken,
+		Value:    response.RefreshToken,
 		Path:     "/",
 		Domain:   "localhost",
 		Secure:   false,
@@ -140,7 +147,7 @@ func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Session Found", &session)
+	utils.SuccessResponse(w, http.StatusOK, "Session Found", session)
 }
 
 // RefreshToken godoc
@@ -152,15 +159,19 @@ func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} utils.Error
 // @Router /api/v1/refresh [post]
 func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	resp, err := c.authClient.RefreshToken(r.Context(), r)
+	token, err := c.authClient.RefreshToken(r.Context(), r)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusUnauthorized, err.Error())
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
-		Value:    resp.Data,
+		Value:    token,
 		Path:     "/",
 		Domain:   "localhost",
 		Secure:   false,

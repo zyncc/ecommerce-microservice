@@ -5,26 +5,23 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/config"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/config"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	log           *zap.Logger
-	env           *config.EnvConfig
-	pool          *pgxpool.Pool
-	kafkaProducer sarama.SyncProducer
+	log  *zap.Logger
+	env  *config.EnvConfig
+	pool *pgxpool.Pool
 }
 
-func NewServer(log *zap.Logger, env *config.EnvConfig, pool *pgxpool.Pool, kafkaProducer sarama.SyncProducer) *http.Server {
+func NewServer(log *zap.Logger, env *config.EnvConfig, pool *pgxpool.Pool) *http.Server {
 	NewServer := &Server{
 		log,
 		env,
 		pool,
-		kafkaProducer,
 	}
 
 	// Declare Server config

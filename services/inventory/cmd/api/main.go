@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/config"
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/server"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/config"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/server"
 	"go.uber.org/zap"
 )
 
@@ -24,12 +24,7 @@ func main() {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
 
-	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
-	if err != nil {
-		log.Fatal("failed to connect to kafka", zap.Error(err))
-	}
-
-	server := server.NewServer(log, env, pool, kafkaProducer)
+	server := server.NewServer(log, env, pool)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)

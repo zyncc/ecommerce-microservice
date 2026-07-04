@@ -106,50 +106,95 @@ services:
     networks:
       - observability
 
-  api-gateway:
-    build:
-      context: .
-      dockerfile: ./services/api-gateway/Dockerfile
-    container_name: api-gateway
-    env_file:
-      - ./services/api-gateway/.env.docker
-    ports:
-      - "8080:8080"
-    depends_on:
-      - auth-service
-      - product-service
+  # api-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/api-gateway/Dockerfile
+  #   container_name: api-gateway
+  #   env_file:
+  #     - ./services/api-gateway/.env.docker
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     auth-service:
+  #       condition: service_healthy
+  #     product-service:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
 
-  auth-service:
-    build:
-      context: .
-      dockerfile: ./services/auth/Dockerfile
-    container_name: auth-service
-    env_file:
-      - ./services/auth/.env.docker
-    ports:
-      - "8081:8081"
-    depends_on:
-      kafka:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    restart: on-failure
+  # auth-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/auth/Dockerfile
+  #   container_name: auth-service
+  #   env_file:
+  #     - ./services/auth/.env.docker
+  #   ports:
+  #     - "8081:8081"
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8081/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
 
-  product-service:
-    build:
-      context: .
-      dockerfile: ./services/product/Dockerfile
-    container_name: product-service
-    env_file:
-      - ./services/product/.env.docker
-    ports:
-      - "8082:8082"
-    depends_on:
-      kafka:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    restart: on-failure
+  # product-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/product/Dockerfile
+  #   container_name: product-service
+  #   env_file:
+  #     - ./services/product/.env.docker
+  #   ports:
+  #     - "8082:8082"
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8082/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+
+  # inventory-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/inventory/Dockerfile
+  #   container_name: inventory-service
+  #   env_file:
+  #     - ./services/inventory/.env.docker
+  #   ports:
+  #     - "8083:8083"
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #     product-service:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8083/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
 
 volumes:
   kafka_kraft:

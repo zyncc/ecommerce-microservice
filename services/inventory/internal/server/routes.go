@@ -7,9 +7,9 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/controller"
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/repository"
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/service"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/controller"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/repository"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/service"
 	"github.com/zyncc/ecommerce-microservice/services/product/pkg/middleware"
 )
 
@@ -30,24 +30,21 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Use(chimiddleware.Recoverer)
 
 	// repository
-	productRepo := repository.NewProductRepository(s.log, s.pool)
+	inventoryRepo := repository.NewInventoryRepository(s.log, s.pool)
 
 	// services
-	productService := service.NewProductService(s.log, productRepo)
+	inventoryService := service.NewProductService(s.log, inventoryRepo)
 
 	// controllers
-	productController := controller.NewProductController(s.log, productService)
+	inventoryController := controller.NewInventoryController(s.log, inventoryService)
 
 	// routes
 	r.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
-		utils.SuccessResponse[any](w, http.StatusOK, "product service healthy", nil)
+		utils.SuccessResponse[any](w, http.StatusOK, "inventory service healthy", nil)
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.HandleFunc("POST /product", productController.CreateProduct)
-		r.HandleFunc("GET /product", productController.GetAllProducts)
-		r.HandleFunc("GET /product/{id}", productController.GetProductByID)
-		r.HandleFunc("DELETE /product/{id}", productController.DeleteProduct)
+		r.HandleFunc("POST /inventory", inventoryController.CreateProduct)
 	})
 
 	return r

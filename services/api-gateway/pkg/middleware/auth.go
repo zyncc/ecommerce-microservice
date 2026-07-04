@@ -24,41 +24,31 @@ func NewAuthMiddleware(log *zap.Logger, authClient *client.AuthClient) *AuthMidd
 
 func (m *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionResponse, err := m.authClient.GetSession(r.Context(), r)
+		session, err := m.authClient.GetSession(r.Context(), r)
 		if err != nil {
 			utils.AuthorizationErrorResponse(w)
 			return
 		}
 
-		if !sessionResponse.Success {
-			utils.AuthorizationErrorResponse(w)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), types.SessionContextKey, sessionResponse.Data)
+		ctx := context.WithValue(r.Context(), types.SessionContextKey, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 func (m *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionResponse, err := m.authClient.GetSession(r.Context(), r)
+		session, err := m.authClient.GetSession(r.Context(), r)
 		if err != nil {
 			utils.AuthorizationErrorResponse(w)
 			return
 		}
 
-		if !sessionResponse.Success {
-			utils.AuthorizationErrorResponse(w)
-			return
-		}
-
-		if sessionResponse.Data.Role != "admin" {
+		if session.Role != "admin" {
 			utils.ForbiddenErrorResponse(w)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), types.SessionContextKey, sessionResponse.Data)
+		ctx := context.WithValue(r.Context(), types.SessionContextKey, session)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

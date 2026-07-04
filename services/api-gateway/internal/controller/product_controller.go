@@ -8,20 +8,22 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
-	"github.com/zyncc/ecommerce-microservice/services/product/pkg/types/dto"
 	"go.uber.org/zap"
 )
 
 type ProductController struct {
-	log           *zap.Logger
-	productClient *client.ProductClient
+	log             *zap.Logger
+	productClient   *client.ProductClient
+	inventoryClient *client.InventoryClient
 }
 
-func NewProductController(log *zap.Logger, productClient *client.ProductClient) *ProductController {
+func NewProductController(log *zap.Logger, productClient *client.ProductClient, inventoryClient *client.InventoryClient) *ProductController {
 	return &ProductController{
 		log,
 		productClient,
+		inventoryClient,
 	}
 }
 
@@ -42,16 +44,41 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	id, err := c.productClient.CreateProduct(r.Context(), &req)
+	productID, err := c.productClient.CreateProduct(r.Context(), &req)
 	if err != nil {
 		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			c.log.Error("failed to create product", zap.Error(httpErr))
 			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
 			return
 		}
+		c.log.Error("failed to create product", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
-	utils.SuccessResponse(w, http.StatusOK, "Product Created", &id)
+
+	inventoryPayload := &dto.CreateInventoryRequest{
+		ProductID: productID,
+		Inventory: req.Inventory,
+	}
+
+	id, err := c.inventoryClient.CreateInventory(r.Context(), inventoryPayload)
+	if err != nil {
+		if err := c.productClient.DeleteProduct(r.Context(), productID); err != nil {
+			c.log.Error("failed to delete product", zap.Error(err))
+		}
+
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			c.log.Error("failed to create inventory", zap.Error(httpErr))
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		c.log.Error("failed to create inventory", zap.Error(err))
+
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	utils.SuccessResponse(w, http.StatusOK, "Product Created", id)
 }
 
 // GetAllProducts godoc
@@ -98,13 +125,15 @@ func (c *ProductController) GetAllProducts(w http.ResponseWriter, r *http.Reques
 	products, err := c.productClient.GetAllProducts(r.Context(), limit, offset)
 	if err != nil {
 		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			c.log.Error("failed to get all products", zap.Error(httpErr))
 			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
 			return
 		}
+		c.log.Error("failed to get all products", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
-	utils.SuccessResponse(w, http.StatusOK, "Products Retrieved", &products)
+	utils.SuccessResponse(w, http.StatusOK, "Products Retrieved", products)
 }
 
 // GetAllProducts godoc
@@ -134,5 +163,5 @@ func (c *ProductController) GetProductByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Fetched Product", resp.Data)
+	utils.SuccessResponse(w, http.StatusOK, "Fetched Product", resp)
 }

@@ -39,10 +39,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// clients
 	authClient := client.NewAuthClient(s.log, s.env, httpClient)
 	productClient := client.NewProductClient(s.log, s.env, httpClient)
+	inventoryClient := client.NewInventoryClient(s.log, s.env, httpClient)
 
 	// controller
 	authController := controller.NewAuthController(s.log, authClient)
-	productController := controller.NewProductController(s.log, productClient)
+	productController := controller.NewProductController(s.log, productClient, inventoryClient)
 
 	// middleware
 	authMiddleware := middleware.NewAuthMiddleware(s.log, authClient)

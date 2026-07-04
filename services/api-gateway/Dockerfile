@@ -6,6 +6,7 @@ COPY go.work go.work.sum ./
 COPY services/api-gateway ./services/api-gateway
 COPY services/auth ./services/auth
 COPY services/product ./services/product
+COPY services/inventory ./services/inventory
 
 RUN go work sync
 

@@ -21,7 +21,7 @@ func NewProductRepository(log *zap.Logger, db *pgxpool.Pool) *ProductRepository 
 	return &ProductRepository{log, db}
 }
 
-func (r *ProductRepository) CreateProduct(ctx context.Context, params *model.CreateProductParams) (string, error) {
+func (r *ProductRepository) CreateProduct(ctx context.Context, params *model.CreateProductParams) (uuid.UUID, error) {
 	id := uuid.New()
 	_, err := r.db.Exec(ctx,
 		`INSERT INTO product (id, title, description, price, category)
@@ -29,9 +29,9 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, params *model.Cre
 		id, params.Title, params.Description, params.Price, params.Category)
 	if err != nil {
 		r.log.Error("failed to create product", zap.Error(err))
-		return "", types.ErrDatabase
+		return uuid.Nil, types.ErrDatabase
 	}
-	return id.String(), nil
+	return id, nil
 }
 
 func (r *ProductRepository) FetchAllProducts(ctx context.Context, limit, offset int) ([]*model.Product, error) {
@@ -79,4 +79,22 @@ func (r *ProductRepository) GetProductByID(ctx context.Context, id uuid.UUID) (m
 	}
 
 	return product, nil
+}
+
+func (r *ProductRepository) DeleteProduct(ctx context.Context, id uuid.UUID) error {
+	tag, err := r.db.Exec(ctx,
+		`DELETE FROM product WHERE id = $1`,
+		id,
+	)
+	if err != nil {
+		r.log.Error("failed to delete product", zap.Error(err))
+		return types.ErrDatabase
+	}
+
+	if tag.RowsAffected() == 0 {
+		r.log.Error("failed to delete product", zap.Error(err))
+		return types.ErrDatabase
+	}
+
+	return nil
 }

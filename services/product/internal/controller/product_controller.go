@@ -7,10 +7,10 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/service"
 	"github.com/zyncc/ecommerce-microservice/services/product/pkg/types"
-	"github.com/zyncc/ecommerce-microservice/services/product/pkg/types/dto"
 	"go.uber.org/zap"
 )
 
@@ -96,4 +96,21 @@ func (c *ProductController) GetProductByID(w http.ResponseWriter, r *http.Reques
 	}
 
 	utils.SuccessResponse(w, http.StatusOK, "Fetched Product", &productId)
+}
+
+func (c *ProductController) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	pathID := r.PathValue("id")
+
+	id, err := uuid.Parse(pathID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "id is not valid")
+		return
+	}
+
+	if err := c.svc.DeleteProduct(r.Context(), id); err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SuccessResponse[any](w, http.StatusOK, "Deleted Product", nil)
 }
