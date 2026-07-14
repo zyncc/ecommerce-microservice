@@ -19,6 +19,7 @@ func main() {
 	}
 	log := config.NewLogger(env.AppEnv)
 
+	// postgres
 	pool, err := config.InitDB(env.DatabaseURL)
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))

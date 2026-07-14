@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/config"
-
-	_ "github.com/joho/godotenv/autoload"
 	"go.uber.org/zap"
 )
 

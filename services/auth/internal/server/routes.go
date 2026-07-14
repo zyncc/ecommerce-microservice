@@ -31,12 +31,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// repository
 	userRepo := repository.NewUserRepository(s.log, s.pool)
+	addressRepo := repository.NewAddressRepository(s.log, s.pool)
 
 	// services
 	authService := service.NewAuthService(s.log, userRepo, s.kafkaProducer, s.env)
+	addressService := service.NewAddressService(s.log, addressRepo, s.env)
 
 	// controllers
 	authController := controller.NewAuthController(s.log, authService)
+	addressController := controller.NewAddressController(s.log, addressService)
 
 	// routes
 	r.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +51,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.HandleFunc("POST /signin", authController.SignIn)
 		r.HandleFunc("POST /refresh", authController.RefreshToken)
 		r.HandleFunc("GET /session", authController.GetSession)
+
+		r.HandleFunc("POST /address", addressController.CreateAddress)
+		r.HandleFunc("GET /address/{id}", addressController.GetAddressByID)
+		r.HandleFunc("GET /address", addressController.FetchAllAddresses)
 	})
 
 	return r

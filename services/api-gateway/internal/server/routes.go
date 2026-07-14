@@ -7,8 +7,8 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 	_ "github.com/zyncc/ecommerce-microservice/services/api-gateway/docs"
 
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/controller"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/middleware"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 
@@ -36,14 +36,18 @@ func (s *Server) RegisterRoutes() http.Handler {
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
 	}
+
 	// clients
-	authClient := client.NewAuthClient(s.log, s.env, httpClient)
-	productClient := client.NewProductClient(s.log, s.env, httpClient)
-	inventoryClient := client.NewInventoryClient(s.log, s.env, httpClient)
+	authClient := client.NewAuthClient(s.log, s.env.AuthServiceURL, httpClient)
+	productClient := client.NewProductClient(s.log, s.env.ProductServiceURL, httpClient)
+	inventoryClient := client.NewInventoryClient(s.log, s.env.InventoryServiceURL, httpClient)
+	orderClient := client.NewOrderClient(s.log, s.env.OrderServiceURL, httpClient)
 
 	// controller
 	authController := controller.NewAuthController(s.log, authClient)
 	productController := controller.NewProductController(s.log, productClient, inventoryClient)
+	orderController := controller.NewOrderController(s.log, orderClient)
+	inventoryController := controller.NewInventoryController(s.log, inventoryClient)
 
 	// middleware
 	authMiddleware := middleware.NewAuthMiddleware(s.log, authClient)
@@ -53,7 +57,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	})
 
 	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), //The url pointing to API definition
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
 	))
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -64,11 +68,19 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.HandleFunc("GET /product", productController.GetAllProducts)
 		r.HandleFunc("GET /product/{id}", productController.GetProductByID)
 
+		r.HandleFunc("GET /inventory/{productID}", inventoryController.FetchInventoryByProductID)
+
 		// authenticated routes
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware.RequireAuth)
 			r.HandleFunc("GET /session", authController.GetSession)
 			r.HandleFunc("POST /signout", authController.SignOut)
+
+			r.HandleFunc("POST /address", authController.CreateAddress)
+			r.HandleFunc("GET /address/{id}", authController.GetAddressByID)
+			r.HandleFunc("GET /address", authController.FetchAllAddresses)
+
+			r.HandleFunc("POST /order", orderController.CreateOrder)
 		})
 
 		// admin routes

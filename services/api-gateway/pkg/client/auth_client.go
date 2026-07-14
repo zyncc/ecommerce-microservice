@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/config"
+	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 
@@ -17,14 +17,14 @@ import (
 
 type AuthClient struct {
 	log        *zap.Logger
-	env        *config.EnvConfig
+	authSvcURL string
 	httpClient *http.Client
 }
 
-func NewAuthClient(log *zap.Logger, env *config.EnvConfig, httpClient *http.Client) *AuthClient {
+func NewAuthClient(log *zap.Logger, authSvcURL string, httpClient *http.Client) *AuthClient {
 	return &AuthClient{
 		log,
-		env,
+		authSvcURL,
 		httpClient,
 	}
 }
@@ -39,7 +39,7 @@ func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (string
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		fmt.Sprintf("%s/api/v1/signup", c.env.AuthServiceURL),
+		fmt.Sprintf("%s/api/v1/signup", c.authSvcURL),
 		bytes.NewReader(reqBody),
 	)
 	if err != nil {
@@ -87,7 +87,7 @@ func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (dto.Si
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		fmt.Sprintf("%s/api/v1/signin", c.env.AuthServiceURL),
+		fmt.Sprintf("%s/api/v1/signin", c.authSvcURL),
 		bytes.NewReader(reqBody),
 	)
 	if err != nil {
@@ -129,7 +129,7 @@ func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (types.Ses
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		fmt.Sprintf("%s/api/v1/session", c.env.AuthServiceURL),
+		fmt.Sprintf("%s/api/v1/session", c.authSvcURL),
 		nil,
 	)
 	if err != nil {
@@ -176,7 +176,7 @@ func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (string,
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		fmt.Sprintf("%s/api/v1/refresh", c.env.AuthServiceURL),
+		fmt.Sprintf("%s/api/v1/refresh", c.authSvcURL),
 		nil,
 	)
 	if err != nil {
@@ -208,6 +208,117 @@ func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (string,
 			zap.String("message", body.Message),
 		)
 		return "", &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
+	}
+
+	return body.Data, nil
+}
+
+func (c *AuthClient) CreateAddress(ctx context.Context, req dto.CreateAddressRequest) (uuid.UUID, error) {
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		c.log.Error("failed to marshall json", zap.Error(err))
+		return uuid.Nil, utils.ErrSomethingWentWrong
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/address", c.authSvcURL), bytes.NewReader(reqData))
+	if err != nil {
+		c.log.Error("failed to create http request", zap.Error(err))
+		return uuid.Nil, utils.ErrSomethingWentWrong
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		c.log.Error("failed to send http request", zap.Error(err))
+		return uuid.Nil, utils.ErrSomethingWentWrong
+	}
+	defer response.Body.Close()
+
+	var body utils.Success[uuid.UUID]
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		c.log.Error("failed to decode response body", zap.Error(err))
+		return uuid.Nil, utils.ErrSomethingWentWrong
+	}
+
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return uuid.Nil, &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
+	}
+
+	return body.Data, nil
+}
+
+func (c *AuthClient) GetAddressByID(ctx context.Context, id uuid.UUID) (dto.AddressResponse, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/address/%s", c.authSvcURL, id.String()), nil)
+	if err != nil {
+		c.log.Error("failed to create http request", zap.Error(err))
+		return dto.AddressResponse{}, utils.ErrSomethingWentWrong
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		c.log.Error("failed to send http request", zap.Error(err))
+		return dto.AddressResponse{}, utils.ErrSomethingWentWrong
+	}
+	defer response.Body.Close()
+
+	var body utils.Success[dto.AddressResponse]
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		c.log.Error("failed to decode response body", zap.Error(err))
+		return dto.AddressResponse{}, utils.ErrSomethingWentWrong
+	}
+
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return dto.AddressResponse{}, &utils.HTTPError{
+			Status:  body.Code,
+			Message: body.Message,
+		}
+	}
+
+	return body.Data, nil
+}
+
+func (c *AuthClient) GetAllAddresses(ctx context.Context, userID uuid.UUID) ([]dto.AddressResponse, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/address?userID=%s", c.authSvcURL, userID.String()), nil)
+	if err != nil {
+		c.log.Error("failed to create http request", zap.Error(err))
+		return []dto.AddressResponse{}, utils.ErrSomethingWentWrong
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		c.log.Error("failed to send http request", zap.Error(err))
+		return []dto.AddressResponse{}, utils.ErrSomethingWentWrong
+	}
+	defer response.Body.Close()
+
+	var body utils.Success[[]dto.AddressResponse]
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		c.log.Error("failed to decode response body", zap.Error(err))
+		return []dto.AddressResponse{}, utils.ErrSomethingWentWrong
+	}
+
+	if !body.Success {
+		c.log.Error(
+			"auth service returned server error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return []dto.AddressResponse{}, &utils.HTTPError{
 			Status:  body.Code,
 			Message: body.Message,
 		}

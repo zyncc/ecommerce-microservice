@@ -32,8 +32,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// repository
 	productRepo := repository.NewProductRepository(s.log, s.pool)
 
+	// cache
+	productCacheRepo := repository.NewProductCacheRepository(s.log, s.redis)
+
 	// services
-	productService := service.NewProductService(s.log, productRepo)
+	productService := service.NewProductService(s.log, productRepo, productCacheRepo)
 
 	// controllers
 	productController := controller.NewProductController(s.log, productService)

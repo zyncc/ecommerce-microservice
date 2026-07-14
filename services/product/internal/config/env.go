@@ -10,6 +10,7 @@ type EnvConfig struct {
 	AppEnv      string `env:"APP_ENV"`
 	DatabaseURL string `env:"DATABASE_URL"`
 	KafkaBroker string `env:"KAFKA_BROKER"`
+	RedisURL    string `env:"REDIS_URL"`
 }
 
 func LoadEnv() (*EnvConfig, error) {

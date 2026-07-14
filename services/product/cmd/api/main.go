@@ -19,17 +19,22 @@ func main() {
 	}
 	log := config.NewLogger(env.AppEnv)
 
+	// postgres
 	pool, err := config.InitDB(env.DatabaseURL)
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
+
+	// redis
+	redis := config.ConnectRedis(env)
+	defer redis.Close()
 
 	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
 	if err != nil {
 		log.Fatal("failed to connect to kafka", zap.Error(err))
 	}
 
-	server := server.NewServer(log, env, pool, kafkaProducer)
+	server := server.NewServer(log, env, pool, redis, kafkaProducer)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)

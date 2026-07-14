@@ -30,18 +30,18 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	productId, err := c.svc.CreateProduct(r.Context(), &req)
+	productID, err := c.svc.CreateProduct(r.Context(), &req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Product Created", &productId)
+	utils.SuccessResponse(w, http.StatusOK, "Product Created", &productID)
 }
 
 const (
 	defaultLimit = 5
-	maxLimit     = 100
+	maxLimit     = 10
 )
 
 func (s *ProductController) GetAllProducts(w http.ResponseWriter, r *http.Request) {

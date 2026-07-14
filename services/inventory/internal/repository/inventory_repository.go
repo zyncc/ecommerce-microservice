@@ -2,11 +2,9 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/repository/model"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types"
@@ -25,11 +23,31 @@ func NewInventoryRepository(log *zap.Logger, db *pgxpool.Pool) *InventoryReposit
 func (r *InventoryRepository) CreateInventory(ctx context.Context, params *model.CreateInventoryParams) (uuid.UUID, error) {
 	id := uuid.New()
 
-	_, err := r.db.Exec(ctx,
-		`INSERT INTO inventory
-		(id, product_id, small, medium, large, extra_large)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		id, params.ProductID, params.Small, params.Medium, params.Large, params.ExtraLarge)
+	_, err := r.db.Exec(
+		ctx, `
+		INSERT INTO inventory (
+			id, 
+			product_id, 
+			small, 
+			medium, 
+			large, 
+			extra_large
+		)
+		VALUES (
+			$1, 
+			$2, 
+			$3, 
+			$4, 
+			$5, 
+			$6
+		)`,
+		id,
+		params.ProductID,
+		params.Small,
+		params.Medium,
+		params.Large,
+		params.ExtraLarge,
+	)
 	if err != nil {
 		r.log.Error("failed to create inventory", zap.Error(err))
 		return uuid.Nil, types.ErrDatabase
@@ -41,9 +59,19 @@ func (r *InventoryRepository) CreateInventory(ctx context.Context, params *model
 func (r *InventoryRepository) FindInventoryByProductID(ctx context.Context, productID uuid.UUID) (model.Inventory, error) {
 	var inventory model.Inventory
 
-	if err := r.db.QueryRow(ctx,
-		`SELECT id, product_id, small, medium, large, extra_large, created_at, updated_at
-		FROM inventory WHERE product_id = $1`,
+	if err := r.db.QueryRow(
+		ctx, `
+		SELECT 
+			id, 
+			product_id, 
+			small, 
+			medium, 
+			large, 
+			extra_large, 
+			created_at, 
+			updated_at
+		FROM inventory 
+		WHERE product_id = $1`,
 		productID,
 	).Scan(
 		&inventory.ID,
@@ -55,16 +83,14 @@ func (r *InventoryRepository) FindInventoryByProductID(ctx context.Context, prod
 		&inventory.CreatedAt,
 		&inventory.UpdatedAt,
 	); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return model.Inventory{}, types.ErrInventoryNotFound
-		}
+		r.log.Error("failed to fetch inventory by productID", zap.Error(err))
 		return model.Inventory{}, types.ErrDatabase
 	}
 
 	return inventory, nil
 }
 
-func (r *InventoryRepository) UpdateQuantity(
+func (r *InventoryRepository) UpdateInventory(
 	ctx context.Context,
 	productID uuid.UUID,
 	size string,
@@ -76,20 +102,27 @@ func (r *InventoryRepository) UpdateQuantity(
 		return types.ErrInvalidSize
 	}
 
-	query := fmt.Sprintf(`
+	query := fmt.Sprintf(
+		`
 		UPDATE inventory
-		SET %s = $1,
+		SET %s = %s - $1,
 		updated_at = NOW()
-		WHERE product_id = $2`,
-		size)
+		WHERE product_id = $2
+		AND %s >= $1
+		`,
+		size,
+		size,
+		size,
+	)
 
 	tag, err := r.db.Exec(ctx, query, quantity, productID)
 	if err != nil {
+		r.log.Error("failed to update inventory", zap.Error(err))
 		return types.ErrDatabase
 	}
 
 	if tag.RowsAffected() == 0 {
-		return types.ErrInventoryNotFound
+		return types.ErrInsufficientStock
 	}
 
 	return nil

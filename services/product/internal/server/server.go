@@ -8,6 +8,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"
+	"github.com/redis/go-redis/v9"
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/config"
 	"go.uber.org/zap"
 )
@@ -16,14 +17,16 @@ type Server struct {
 	log           *zap.Logger
 	env           *config.EnvConfig
 	pool          *pgxpool.Pool
+	redis         *redis.Client
 	kafkaProducer sarama.SyncProducer
 }
 
-func NewServer(log *zap.Logger, env *config.EnvConfig, pool *pgxpool.Pool, kafkaProducer sarama.SyncProducer) *http.Server {
+func NewServer(log *zap.Logger, env *config.EnvConfig, pool *pgxpool.Pool, redis *redis.Client, kafkaProducer sarama.SyncProducer) *http.Server {
 	NewServer := &Server{
 		log,
 		env,
 		pool,
+		redis,
 		kafkaProducer,
 	}
 

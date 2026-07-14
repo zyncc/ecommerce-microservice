@@ -21,6 +21,14 @@ type Error struct {
 	Timestamp time.Time `json:"ts"`
 }
 
+type ValidationError struct {
+	Code      int                 `json:"code"`
+	Success   bool                `json:"success"`
+	Message   string              `json:"message"`
+	Errors    map[string][]string `json:"errors"`
+	Timestamp time.Time           `json:"timestamp"`
+}
+
 func SuccessResponse[T any](w http.ResponseWriter, code int, message string, data T) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -40,6 +48,19 @@ func ErrorResponse(w http.ResponseWriter, code int, message string) {
 		Code:      code,
 		Success:   false,
 		Message:   message,
+		Timestamp: time.Now(),
+	})
+}
+
+func ValidationErrorResponse(w http.ResponseWriter, errs map[string][]string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnprocessableEntity)
+
+	json.NewEncoder(w).Encode(ValidationError{
+		Code:      http.StatusUnprocessableEntity,
+		Success:   false,
+		Message:   "validation failed",
+		Errors:    errs,
 		Timestamp: time.Now(),
 	})
 }

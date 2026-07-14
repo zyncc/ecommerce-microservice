@@ -135,8 +135,6 @@ services:
   #   container_name: auth-service
   #   env_file:
   #     - ./services/auth/.env.docker
-  #   ports:
-  #     - "8081:8081"
   #   depends_on:
   #     kafka:
   #       condition: service_healthy
@@ -157,8 +155,6 @@ services:
   #   container_name: product-service
   #   env_file:
   #     - ./services/product/.env.docker
-  #   ports:
-  #     - "8082:8082"
   #   depends_on:
   #     kafka:
   #       condition: service_healthy
@@ -179,8 +175,6 @@ services:
   #   container_name: inventory-service
   #   env_file:
   #     - ./services/inventory/.env.docker
-  #   ports:
-  #     - "8083:8083"
   #   depends_on:
   #     kafka:
   #       condition: service_healthy
@@ -196,6 +190,28 @@ services:
   #     retries: 5
   #     start_period: 10s
 
+  # order-service:
+  #   build:
+  #     context: .
+  #     dockerfile: ./services/order/Dockerfile
+  #   container_name: order-service
+  #   env_file:
+  #     - ./services/order/.env.docker
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #     postgres:
+  #       condition: service_healthy
+  #     inventory-service:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8084/healthz"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+
 volumes:
   kafka_kraft:
   postgres_data:
@@ -205,4 +221,3 @@ volumes:
 
 networks:
   observability:
-    driver: bridge

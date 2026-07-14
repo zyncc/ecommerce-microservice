@@ -8,34 +8,33 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/config"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"go.uber.org/zap"
 )
 
-type InventoryClient struct {
-	log        *zap.Logger
-	env        *config.EnvConfig
-	httpClient *http.Client
+type OrderClient struct {
+	log         *zap.Logger
+	orderSvcURL string
+	httpClient  *http.Client
 }
 
-func NewInventoryClient(log *zap.Logger, env *config.EnvConfig, httpClient *http.Client) *InventoryClient {
-	return &InventoryClient{
+func NewOrderClient(log *zap.Logger, orderSvcURL string, httpClient *http.Client) *OrderClient {
+	return &OrderClient{
 		log,
-		env,
+		orderSvcURL,
 		httpClient,
 	}
 }
 
-func (c *InventoryClient) CreateInventory(ctx context.Context, req *dto.CreateInventoryRequest) (uuid.UUID, error) {
+func (c *OrderClient) CreateOrder(ctx context.Context, req *dto.CreateOrderRequest) (uuid.UUID, error) {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		c.log.Error("failed to marshal json data", zap.Error(err))
 		return uuid.Nil, utils.ErrSomethingWentWrong
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/inventory", c.env.InventoryServiceURL), bytes.NewReader(reqBody))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/order", c.orderSvcURL), bytes.NewReader(reqBody))
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return uuid.Nil, utils.ErrSomethingWentWrong
@@ -59,7 +58,7 @@ func (c *InventoryClient) CreateInventory(ctx context.Context, req *dto.CreateIn
 
 	if !body.Success {
 		c.log.Error(
-			"inventory service returned error",
+			"order service returned error",
 			zap.Int("status", body.Code),
 			zap.String("message", body.Message),
 		)

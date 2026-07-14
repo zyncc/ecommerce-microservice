@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/types"
 	"go.uber.org/zap"

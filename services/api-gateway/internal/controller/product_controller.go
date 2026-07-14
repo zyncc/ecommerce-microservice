@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"go.uber.org/zap"
@@ -40,7 +40,14 @@ func NewProductController(log *zap.Logger, productClient *client.ProductClient, 
 func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateProductRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		c.log.Debug("failed to parse request body", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusBadRequest, "invalid or malformed request")
+		return
+	}
+
+	if errs := req.Validate(); errs != nil {
+		c.log.Debug("request validation failed", zap.Any("fields", errs))
+		utils.ValidationErrorResponse(w, errs)
 		return
 	}
 
@@ -58,7 +65,7 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 
 	inventoryPayload := &dto.CreateInventoryRequest{
 		ProductID: productID,
-		Inventory: req.Inventory,
+		Inventory: *req.Inventory,
 	}
 
 	id, err := c.inventoryClient.CreateInventory(r.Context(), inventoryPayload)
@@ -136,7 +143,7 @@ func (c *ProductController) GetAllProducts(w http.ResponseWriter, r *http.Reques
 	utils.SuccessResponse(w, http.StatusOK, "Products Retrieved", products)
 }
 
-// GetAllProducts godoc
+// GetProductByID godoc
 // @Summary Fetch all products
 // @Description Fetch all products
 // @Tags Product

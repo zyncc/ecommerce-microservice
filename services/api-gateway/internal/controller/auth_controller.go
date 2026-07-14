@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/client"
+	"github.com/google/uuid"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/types"
@@ -37,10 +38,16 @@ func NewAuthController(log *zap.Logger, authClient *client.AuthClient) *AuthCont
 // @Failure 500 {object} utils.Error
 // @Router /api/v1/signup [post]
 func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
-	signUpReq := dto.SignUpRequest{}
+	var signUpReq dto.SignUpRequest
 	if err := json.NewDecoder(r.Body).Decode(&signUpReq); err != nil {
 		c.log.Error("failed to decode request body", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusBadRequest, "failed to parse request body")
+		return
+	}
+
+	if errs := signUpReq.Validate(); errs != nil {
+		c.log.Debug("request validation failed", zap.Any("errors", errs))
+		utils.ValidationErrorResponse(w, errs)
 		return
 	}
 
@@ -68,14 +75,20 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} utils.Error
 // @Router /api/v1/signin [post]
 func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
-	signUpReq := dto.SignInRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&signUpReq); err != nil {
+	var signInReq dto.SignInRequest
+	if err := json.NewDecoder(r.Body).Decode(&signInReq); err != nil {
 		c.log.Error("failed to decode request body", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusBadRequest, "failed to parse request body")
 		return
 	}
 
-	response, err := c.authClient.SignIn(r.Context(), &signUpReq)
+	if errs := signInReq.Validate(); errs != nil {
+		c.log.Debug("request validation failed", zap.Any("fields", errs))
+		utils.ValidationErrorResponse(w, errs)
+		return
+	}
+
+	response, err := c.authClient.SignIn(r.Context(), &signInReq)
 	if err != nil {
 		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
 			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
@@ -181,4 +194,140 @@ func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	})
 
 	utils.SuccessResponse[any](w, http.StatusOK, "Token refreshed", nil)
+}
+
+// CreateAddress godoc
+// @Summary Refresh Token
+// @Description Refresh the access token by by generating a new one
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} string
+// @Failure 500 {object} utils.Error
+// @Router /api/v1/refresh [post]
+func (c *AuthController) CreateAddress(w http.ResponseWriter, r *http.Request) {
+	session, ok := r.Context().Value(types.SessionContextKey).(types.Session)
+	if !ok {
+		utils.AuthorizationErrorResponse(w)
+		return
+	}
+
+	var req dto.CreateAddressRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		c.log.Error("failed to parse request body", zap.Error(err))
+		utils.ErrorResponse(w, http.StatusBadRequest, "failed to parse request body")
+		return
+	}
+
+	if errs := req.Validate(); errs != nil {
+		c.log.Debug("request validation failed", zap.Any("fields", errs))
+		utils.ValidationErrorResponse(w, errs)
+		return
+	}
+
+	if session.ID != req.UserID {
+		utils.ForbiddenErrorResponse(w)
+		return
+	}
+
+	id, err := c.authClient.CreateAddress(r.Context(), req)
+	if err != nil {
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	utils.SuccessResponse[any](w, http.StatusOK, "Address Created", id)
+}
+
+// GetAddressByID godoc
+// @Summary Refresh Token
+// @Description Refresh the access token by by generating a new one
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} string
+// @Failure 500 {object} utils.Error
+// @Router /api/v1/refresh [post]
+func (c *AuthController) GetAddressByID(w http.ResponseWriter, r *http.Request) {
+	session, ok := r.Context().Value(types.SessionContextKey).(types.Session)
+	if !ok {
+		utils.AuthorizationErrorResponse(w)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "address id is invalid")
+		return
+	}
+
+	parsedID, err := uuid.Parse(id)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "address id is not a valid uuid")
+		return
+	}
+
+	address, err := c.authClient.GetAddressByID(r.Context(), parsedID)
+	if err != nil {
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	if address.UserID != session.ID {
+		utils.ForbiddenErrorResponse(w)
+		return
+	}
+
+	utils.SuccessResponse[any](w, http.StatusOK, "Address Fetched", address)
+}
+
+// FetchAllAddresses godoc
+// @Summary Refresh Token
+// @Description Refresh the access token by by generating a new one
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} string
+// @Failure 500 {object} utils.Error
+// @Router /api/v1/refresh [post]
+func (c *AuthController) FetchAllAddresses(w http.ResponseWriter, r *http.Request) {
+	session, ok := r.Context().Value(types.SessionContextKey).(types.Session)
+	if !ok {
+		utils.AuthorizationErrorResponse(w)
+		return
+	}
+
+	userID := r.URL.Query().Get("userID")
+	if userID == "" {
+		utils.ErrorResponse(w, http.StatusBadRequest, "user id is required")
+		return
+	}
+
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "user id is not a valid uuid")
+		return
+	}
+
+	if id != session.ID {
+		utils.ForbiddenErrorResponse(w)
+		return
+	}
+
+	addresses, err := c.authClient.GetAllAddresses(r.Context(), id)
+	if err != nil {
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	utils.SuccessResponse[any](w, http.StatusOK, "Fetched all Addresses", addresses)
 }

@@ -8,22 +8,21 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/config"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"go.uber.org/zap"
 )
 
 type ProductClient struct {
-	log        *zap.Logger
-	env        *config.EnvConfig
-	httpClient *http.Client
+	log           *zap.Logger
+	productSvcURL string
+	httpClient    *http.Client
 }
 
-func NewProductClient(log *zap.Logger, env *config.EnvConfig, httpClient *http.Client) *ProductClient {
+func NewProductClient(log *zap.Logger, productSvcURL string, httpClient *http.Client) *ProductClient {
 	return &ProductClient{
 		log,
-		env,
+		productSvcURL,
 		httpClient,
 	}
 }
@@ -35,7 +34,7 @@ func (c *ProductClient) CreateProduct(ctx context.Context, req *dto.CreateProduc
 		return uuid.Nil, utils.ErrSomethingWentWrong
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/product", c.env.ProductServiceURL), bytes.NewReader(reqBody))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/product", c.productSvcURL), bytes.NewReader(reqBody))
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return uuid.Nil, utils.ErrSomethingWentWrong
@@ -73,7 +72,7 @@ func (c *ProductClient) CreateProduct(ctx context.Context, req *dto.CreateProduc
 }
 
 func (c *ProductClient) GetAllProducts(ctx context.Context, limit, offset int) ([]dto.Product, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/product?limit=%d&offset=%d", c.env.ProductServiceURL, limit, offset), nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/product?limit=%d&offset=%d", c.productSvcURL, limit, offset), nil)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return []dto.Product{}, utils.ErrSomethingWentWrong
@@ -109,7 +108,7 @@ func (c *ProductClient) GetAllProducts(ctx context.Context, limit, offset int) (
 }
 
 func (c *ProductClient) GetProductByID(ctx context.Context, id uuid.UUID) (dto.Product, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/product/%s", c.env.ProductServiceURL, id.String()), nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/product/%s", c.productSvcURL, id.String()), nil)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return dto.Product{}, utils.ErrSomethingWentWrong
@@ -143,7 +142,7 @@ func (c *ProductClient) GetProductByID(ctx context.Context, id uuid.UUID) (dto.P
 }
 
 func (c *ProductClient) DeleteProduct(ctx context.Context, id uuid.UUID) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("%s/api/v1/product/%s", c.env.ProductServiceURL, id.String()), nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("%s/api/v1/product/%s", c.productSvcURL, id.String()), nil)
 	if err != nil {
 		c.log.Error("failed to create http request", zap.Error(err))
 		return utils.ErrSomethingWentWrong
