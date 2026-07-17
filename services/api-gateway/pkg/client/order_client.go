@@ -70,3 +70,39 @@ func (c *OrderClient) CreateOrder(ctx context.Context, req *dto.CreateOrderReque
 
 	return body.Data, nil
 }
+
+func (c *OrderClient) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/order/%s", c.orderSvcURL, orderID.String()), nil)
+	if err != nil {
+		c.log.Error("failed to create http request", zap.Error(err))
+		return dto.FindOrderByIDResponse{}, utils.ErrSomethingWentWrong
+	}
+
+	resp, err := c.httpClient.Do(request)
+	if err != nil {
+		c.log.Error("failed to send http request", zap.Error(err))
+		return dto.FindOrderByIDResponse{}, utils.ErrSomethingWentWrong
+	}
+	defer resp.Body.Close()
+
+	var body utils.Success[dto.FindOrderByIDResponse]
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	if err != nil {
+		c.log.Error("failed to decode response body", zap.Error(err))
+		return dto.FindOrderByIDResponse{}, utils.ErrSomethingWentWrong
+	}
+
+	if !body.Success {
+		c.log.Error(
+			"order service returned error",
+			zap.Int("status", body.Code),
+			zap.String("message", body.Message),
+		)
+		return dto.FindOrderByIDResponse{}, &utils.HTTPError{
+			Status:  resp.StatusCode,
+			Message: body.Message,
+		}
+	}
+
+	return body.Data, nil
+}

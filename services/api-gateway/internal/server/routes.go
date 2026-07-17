@@ -42,12 +42,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 	productClient := client.NewProductClient(s.log, s.env.ProductServiceURL, httpClient)
 	inventoryClient := client.NewInventoryClient(s.log, s.env.InventoryServiceURL, httpClient)
 	orderClient := client.NewOrderClient(s.log, s.env.OrderServiceURL, httpClient)
+	paymentClient := client.NewPaymentClient(s.log, s.env.PaymentServiceURL, httpClient)
 
 	// controller
 	authController := controller.NewAuthController(s.log, authClient)
 	productController := controller.NewProductController(s.log, productClient, inventoryClient)
 	orderController := controller.NewOrderController(s.log, orderClient)
 	inventoryController := controller.NewInventoryController(s.log, inventoryClient)
+	paymentController := controller.NewPaymentController(s.log, paymentClient)
 
 	// middleware
 	authMiddleware := middleware.NewAuthMiddleware(s.log, authClient)
@@ -69,6 +71,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.HandleFunc("GET /product/{id}", productController.GetProductByID)
 
 		r.HandleFunc("GET /inventory/{productID}", inventoryController.FetchInventoryByProductID)
+
+		r.HandleFunc("GET /order/{orderID}", orderController.FindOrderByOrderID)
+
+		// webhooks
+		r.HandleFunc("POST /webhook/payment", paymentController.PaymentWebhook)
 
 		// authenticated routes
 		r.Group(func(r chi.Router) {

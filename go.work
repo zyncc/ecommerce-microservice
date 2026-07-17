@@ -6,4 +6,5 @@ use (
 	./services/inventory
 	./services/product
 	./services/order
+	./services/payment
 )

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
@@ -65,4 +66,42 @@ func (c *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SuccessResponse(w, http.StatusOK, "Order Created", orderID)
+}
+
+// FindOrderByOrderID godoc
+// @Summary Create Product
+// @Description Creates a new Product
+// @Tags Product
+// @Accept json
+// @Produce json
+// @Param request body dto.CreateProductRequest true "Create Product Request"
+// @Success 200 {object} uuid.UUID
+// @Failure 500 {object} utils.Error
+// @Router /api/v1/product [post]
+func (c *OrderController) FindOrderByOrderID(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("orderID")
+	if id == "" {
+		utils.ErrorResponse(w, http.StatusUnprocessableEntity, "order id is required")
+		return
+	}
+
+	orderID, err := uuid.Parse(id)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusUnprocessableEntity, "order id must be a valid uuid")
+		return
+	}
+
+	order, err := c.orderClient.FindOrderByOrderID(r.Context(), orderID)
+	if err != nil {
+		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
+			c.log.Error("failed to create product", zap.Error(httpErr))
+			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+			return
+		}
+		c.log.Error("failed to create product", zap.Error(err))
+		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	utils.SuccessResponse(w, http.StatusOK, "Fetched Order", order)
 }

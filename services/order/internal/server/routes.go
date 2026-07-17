@@ -44,6 +44,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.HandleFunc("POST /order", orderController.CreateOrder)
+		r.HandleFunc("GET /order/{orderID}", orderController.FindOrderByID)
 	})
 
 	return r

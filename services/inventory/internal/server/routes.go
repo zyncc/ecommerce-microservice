@@ -22,7 +22,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	inventoryRepo := repository.NewInventoryRepository(s.log, s.pool)
 
 	// services
-	inventoryService := service.NewProductService(s.log, inventoryRepo)
+	inventoryService := service.NewInventoryService(s.log, inventoryRepo)
 
 	// controllers
 	inventoryController := controller.NewInventoryController(s.log, inventoryService)

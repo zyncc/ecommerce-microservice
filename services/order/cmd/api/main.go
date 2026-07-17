@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/config"
+	"github.com/zyncc/ecommerce-microservice/services/order/internal/consumer"
+	"github.com/zyncc/ecommerce-microservice/services/order/internal/repository"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/server"
+	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -23,42 +28,62 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
+	defer pool.Close()
 
-	server := server.NewServer(log, env, pool)
-
-	// Create a done channel to signal when the shutdown is complete
-	done := make(chan bool, 1)
-
-	// Run graceful shutdown in a separate goroutine
-	go gracefulShutdown(server, done, log)
-
-	log.Info("Server running", zap.Int("port", env.Port))
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal("Failed to start server", zap.Error(err))
+	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
+	if err != nil {
+		log.Fatal("failed to connect to kafka", zap.Error(err))
 	}
-}
+	defer kafkaProducer.Close()
+	log.Info("Kafka Producer Running")
 
-func gracefulShutdown(apiServer *http.Server, done chan bool, log *zap.Logger) {
-	// Create context that listens for the interrupt signal from the OS.
+	apiServer := server.NewServer(log, env, pool)
+
+	orderRepo := repository.NewOrderRepository(log, pool)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Listen for the interrupt signal.
+	var wg sync.WaitGroup
+
+	orderConsumer := consumer.OrderConsumer{
+		Log:       log,
+		GroupID:   "order-service-consumer",
+		OrderRepo: orderRepo,
+		Brokers:   []string{env.KafkaBroker},
+		Topics:    []string{types.PaymentSucceededTopic},
+	}
+
+	wg.Go(func() {
+		if err := orderConsumer.RunOrderConsumer(ctx); !errors.Is(err, context.Canceled) {
+			log.Fatal("order consumer exited with error", zap.Error(err))
+		}
+	})
+
+	wg.Add(1)
+	go gracefulShutdown(ctx, apiServer, &wg, log)
+
+	log.Info("Server running", zap.Int("port", env.Port))
+	if err := apiServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal("Failed to start server", zap.Error(err))
+	}
+
+	wg.Wait()
+	log.Info("shutdown complete")
+}
+
+func gracefulShutdown(ctx context.Context, apiServer *http.Server, wg *sync.WaitGroup, log *zap.Logger) {
+	defer wg.Done()
+
 	<-ctx.Done()
-
 	log.Info("shutting down gracefully, press Ctrl+C again to force")
-	stop() // Allow Ctrl+C to force shutdown
 
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := apiServer.Shutdown(ctx); err != nil {
+
+	if err := apiServer.Shutdown(shutdownCtx); err != nil {
 		log.Error("Server forced to shutdown with error", zap.Error(err))
 	}
 
 	log.Info("Server exiting")
-
-	// Notify the main goroutine that the shutdown is complete
-	done <- true
 }

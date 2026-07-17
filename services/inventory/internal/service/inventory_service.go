@@ -15,7 +15,7 @@ type InventoryService struct {
 	repo *repository.InventoryRepository
 }
 
-func NewProductService(log *zap.Logger, repo *repository.InventoryRepository) *InventoryService {
+func NewInventoryService(log *zap.Logger, repo *repository.InventoryRepository) *InventoryService {
 	return &InventoryService{log, repo}
 }
 

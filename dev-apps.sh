@@ -31,10 +31,15 @@ tmux new-window -t "$SESSION" -n inventory
 tmux send-keys -t "$SESSION:inventory" \
   "cd $ROOT/inventory && air" C-m
 
-# Notification
+# Order
 tmux new-window -t "$SESSION" -n order
 tmux send-keys -t "$SESSION:order" \
   "cd $ROOT/order && air" C-m
+
+# Payment
+tmux new-window -t "$SESSION" -n payment
+tmux send-keys -t "$SESSION:payment" \
+  "cd $ROOT/payment && air" C-m
 
 # Select the first window
 tmux select-window -t "$SESSION:gateway"

@@ -30,16 +30,11 @@ func NewOrderService(log *zap.Logger, repo *repository.OrderRepository, authClie
 }
 
 func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderRequest) (uuid.UUID, error) {
-	// fetch address
-	// compute order price
-	// check if inventory exists
-
 	address, err := s.authClient.GetAddressByID(ctx, req.AddressID)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
-	// compute order price
 	var (
 		subtotal float64
 		mu       sync.Mutex
@@ -115,20 +110,19 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	}
 
 	id, err := s.repo.CreateOrder(ctx, model.CreateOrderParams{
-		UserID:       req.UserID,
-		Items:        req.Items,
-		Subtotal:     subtotal,
-		OrderTotal:   orderTotal,
-		ShippingCost: shippingCost,
-		FirstName:    address.FirstName,
-		LastName:     address.LastName,
-		Email:        address.Email,
-		Phone:        address.Phone,
-		Address1:     address.Address1,
-		Address2:     address.Address2,
-		City:         address.City,
-		State:        address.State,
-		Zip:          address.Zip,
+		UserID:     req.UserID,
+		Items:      req.Items,
+		Subtotal:   subtotal,
+		OrderTotal: orderTotal,
+		FirstName:  address.FirstName,
+		LastName:   address.LastName,
+		Email:      address.Email,
+		Phone:      address.Phone,
+		Address1:   address.Address1,
+		Address2:   address.Address2,
+		City:       address.City,
+		State:      address.State,
+		Zip:        address.Zip,
 	})
 	if err != nil {
 		s.log.Error("failed to create order", zap.Error(err))
@@ -136,4 +130,51 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	}
 
 	return id, nil
+}
+
+func (s *OrderService) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error) {
+	order, err := s.repo.GetOrder(ctx, orderID)
+	if err != nil {
+		return dto.FindOrderByIDResponse{}, err
+	}
+
+	var orderItemsResp []dto.OrderItems
+
+	for _, item := range order.OrderItems {
+		respItem := dto.OrderItems{
+			ID:        item.ID,
+			OrderID:   item.OrderID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Size:      item.Size,
+			Price:     item.Price,
+			CreatedAt: item.CreatedAt,
+			UpdatedAt: item.UpdatedAt,
+		}
+
+		orderItemsResp = append(orderItemsResp, respItem)
+	}
+
+	orderResp := dto.FindOrderByIDResponse{
+		ID:             order.ID,
+		UserID:         order.UserID,
+		IdempotencyKey: order.IdempotencyKey,
+		Subtotal:       order.Subtotal,
+		OrderTotal:     order.OrderTotal,
+		OrderStatus:    order.OrderStatus,
+		FirstName:      order.FirstName,
+		LastName:       order.LastName,
+		Email:          order.Email,
+		Phone:          order.Phone,
+		Address1:       order.Address1,
+		Address2:       order.Address2,
+		City:           order.City,
+		State:          order.State,
+		Zip:            order.Zip,
+		CreatedAt:      order.CreatedAt,
+		UpdatedAt:      order.UpdatedAt,
+		OrderItems:     orderItemsResp,
+	}
+
+	return orderResp, nil
 }

@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS order_items (
 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-)  
+);

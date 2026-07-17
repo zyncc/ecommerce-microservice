@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/service"
@@ -34,4 +35,26 @@ func (c *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.SuccessResponse(w, http.StatusCreated, "Order Created", id)
+}
+
+func (c *OrderController) FindOrderByID(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("orderID")
+	if id == "" {
+		utils.ErrorResponse(w, http.StatusUnprocessableEntity, "order id is required")
+		return
+	}
+
+	orderID, err := uuid.Parse(id)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusUnprocessableEntity, "order id must be a valid uuid")
+		return
+	}
+
+	order, err := c.svc.FindOrderByOrderID(r.Context(), orderID)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusInternalServerError, "failed to fetch order")
+		return
+	}
+
+	utils.SuccessResponse(w, http.StatusOK, "Fetched order", order)
 }
