@@ -21,7 +21,7 @@ jobs:
           - inventory
           - order
           - payment
-          - shipment
+          - shippping
           - notification
 
     steps:
@@ -50,7 +50,7 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
-          context: ./services/${{ matrix.service}}
+          context: .
           file: ./services/${{ matrix.service }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
