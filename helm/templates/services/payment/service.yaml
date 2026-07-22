@@ -7,6 +7,6 @@ spec:
   selector:
     app: payment
   ports:
-    - port: 8085
-      targetPort: 8085
+    - port: {{ .Values.payment.port }}
+      targetPort: {{ .Values.payment.port }}
   type: ClusterIP

@@ -4,5 +4,5 @@ metadata:
   name: product-config
   namespace: {{ .Values.namespace }}
 data:
-  PORT: "8082"
+  PORT: "8083"
   APP_ENV: "production"

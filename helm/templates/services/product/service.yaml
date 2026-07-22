@@ -7,6 +7,6 @@ spec:
   selector:
     app: product
   ports:
-    - port: 8082
-      targetPort: 8082
+    - port: {{ .Values.product.port }}
+      targetPort: {{ .Values.product.port }}
   type: ClusterIP

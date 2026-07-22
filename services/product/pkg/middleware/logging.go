@@ -25,12 +25,14 @@ func Logger(logger *zap.Logger) func(http.Handler) http.Handler {
 
 			next.ServeHTTP(rw, r)
 
-			logger.Info("incoming request",
-				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-				zap.Int("status", rw.status),
-				zap.Duration("duration", time.Since(start)),
-			)
+			if r.URL.Path != "/healthz" {
+				logger.Info("incoming request",
+					zap.String("method", r.Method),
+					zap.String("path", r.URL.Path),
+					zap.Int("status", rw.status),
+					zap.Duration("duration", time.Since(start)),
+				)
+			}
 		})
 	}
 }

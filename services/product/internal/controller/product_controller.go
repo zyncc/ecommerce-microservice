@@ -36,7 +36,7 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Product Created", &productID)
+	utils.SuccessResponse(w, http.StatusOK, "Product Created", productID)
 }
 
 const (

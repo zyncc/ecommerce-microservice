@@ -7,6 +7,6 @@ spec:
   selector:
     app: shipping
   ports:
-    - port: 8086
-      targetPort: 8086
+    - port: {{ .Values.shipping.port }}
+      targetPort: {{ .Values.shipping.port }}
   type: ClusterIP

@@ -7,6 +7,6 @@ spec:
   selector:
     app: order
   ports:
-    - port: 8084
-      targetPort: 8084
+    - port: {{ .Values.order.port }}
+      targetPort: {{ .Values.order.port }}
   type: ClusterIP

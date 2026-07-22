@@ -22,7 +22,7 @@ func NewProductService(log *zap.Logger, repo *repository.ProductRepository, cach
 	return &ProductService{log, repo, cache}
 }
 
-func (s *ProductService) CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (string, error) {
+func (s *ProductService) CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (uuid.UUID, error) {
 	id, err := s.repo.CreateProduct(ctx, &model.CreateProductParams{
 		Title:       req.Title,
 		Description: req.Description,
@@ -30,10 +30,10 @@ func (s *ProductService) CreateProduct(ctx context.Context, req *dto.CreateProdu
 		Category:    req.Category,
 	})
 	if err != nil {
-		return "", err
+		return uuid.Nil, err
 	}
 
-	return id.String(), nil
+	return id, nil
 }
 
 func (s *ProductService) GetAllProducts(ctx context.Context, limit, offset int) ([]*model.Product, error) {
