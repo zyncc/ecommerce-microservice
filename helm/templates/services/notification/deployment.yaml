@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: notification
+
+spec:
+  replicas: {{ .Values.notification.replicas }}
+
+  selector:
+    matchLabels:
+      app: notification
+
+  template:
+    metadata:
+      labels:
+        app: notification
+
+    spec:
+      containers:
+        - name: notification
+          image: ghcr.io/zyncc/notification:latest
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+          envFrom:
+            - configMapRef:
+                name: notification-config
+            - secretRef:
+                name: notification-secret

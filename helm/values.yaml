@@ -1,0 +1,43 @@
+namespace: ecommerce-microservice
+
+postgres:
+  image: postgres:18
+  storage: 2Gi
+
+redis:
+  image: redis:8.2.1
+
+kafka:
+  image: confluentinc/cp-kafka:8.2.2
+  storage: 2Gi
+
+apiGateway:
+  replicas: 1
+  port: 8080
+
+auth:
+  replicas: 1
+  port: 8081
+
+product:
+  replicas: 1
+  port: 8082
+
+inventory:
+  replicas: 1
+  port: 8083
+
+order:
+  replicas: 1
+  port: 8084
+
+payment:
+  replicas: 1
+  port: 8085
+
+shipping:
+  replicas: 1
+  port: 8086
+
+notification:
+  replicas: 1

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: inventory
+
+spec:
+  replicas: {{ .Values.inventory.replicas }}
+
+  selector:
+    matchLabels:
+      app: inventory
+
+  template:
+    metadata:
+      labels:
+        app: inventory
+
+    spec:
+      containers:
+        - name: inventory
+          image: ghcr.io/zyncc/inventory:latest
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+          ports:
+            - containerPort: {{ .Values.inventory.port }}
+
+          envFrom:
+            - configMapRef:
+                name: inventory-config
+            - secretRef:
+                name: inventory-secret
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.inventory.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.inventory.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: product
+
+spec:
+  replicas: {{ .Values.product.replicas }}
+
+  selector:
+    matchLabels:
+      app: product
+
+  template:
+    metadata:
+      labels:
+        app: product
+
+    spec:
+      containers:
+        - name: product
+          image: ghcr.io/zyncc/product:latest
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+          ports:
+            - containerPort: {{ .Values.product.port }}
+
+          envFrom:
+            - configMapRef:
+                name: product-config
+            - secretRef:
+                name: product-secret
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.product.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.product.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3

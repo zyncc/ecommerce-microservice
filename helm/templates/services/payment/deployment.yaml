@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: payment
+
+spec:
+  replicas: {{ .Values.payment.replicas }}
+
+  selector:
+    matchLabels:
+      app: payment
+
+  template:
+    metadata:
+      labels:
+        app: payment
+
+    spec:
+      containers:
+        - name: payment
+          image: ghcr.io/zyncc/payment:latest
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+          ports:
+            - containerPort: {{ .Values.payment.port }}
+
+          envFrom:
+            - configMapRef:
+                name: payment-config
+            - secretRef:
+                name: payment-secret
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.payment.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.payment.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3

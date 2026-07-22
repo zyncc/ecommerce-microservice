@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: shipping
+
+spec:
+  replicas: {{ .Values.shipping.replicas }}
+
+  selector:
+    matchLabels:
+      app: shipping
+
+  template:
+    metadata:
+      labels:
+        app: shipping
+
+    spec:
+      containers:
+        - name: shipping
+          image: ghcr.io/zyncc/shipping:latest
+          imagePullPolicy: IfNotPresent
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+          ports:
+            - containerPort: {{ .Values.shipping.port }}
+
+          envFrom:
+            - configMapRef:
+                name: shipping-config
+            - secretRef:
+                name: shipping-secret
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.shipping.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.shipping.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
