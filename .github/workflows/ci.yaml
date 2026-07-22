@@ -21,7 +21,7 @@ jobs:
           - inventory
           - order
           - payment
-          - shippping
+          - shipping
           - notification
 
     steps:
