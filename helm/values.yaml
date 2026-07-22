@@ -12,11 +12,11 @@ kafka:
   storage: 2Gi
 
 apiGateway:
-  replicas: 1
+  replicas: 2
   port: 8080
 
 auth:
-  replicas: 1
+  replicas: 2
   port: 8081
 
 product:
@@ -24,20 +24,20 @@ product:
   port: 8082
 
 inventory:
-  replicas: 1
+  replicas: 2
   port: 8083
 
 order:
-  replicas: 1
+  replicas: 4
   port: 8084
 
 payment:
-  replicas: 1
+  replicas: 4
   port: 8085
 
 shipping:
-  replicas: 1
+  replicas: 4
   port: 8086
 
 notification:
-  replicas: 1
+  replicas: 2

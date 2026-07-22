@@ -2,6 +2,8 @@
 
 A production-minded e-commerce backend written in **Go**, built with a **microservices architecture** and an **event-driven design**. The platform exposes synchronous functionality through REST APIs, while asynchronous business workflows are coordinated through **Apache Kafka**.
 
+> **📈 Built to scale event processing:** Each event-consuming microservice runs as its own Kafka consumer group, so every service receives the events it needs while its replicas share the work within that service. High-throughput topics are split across multiple partitions; paired with Kubernetes replicas, Kafka assigns partitions across consumer instances to process events concurrently. This enables horizontal scaling and efficient, partition-level parallelism without duplicate processing within a consumer group.
+
 It is designed to demonstrate the systems concerns behind a modern backend: independent services, resilient event processing, caching, authentication, rate limiting, container orchestration, CI, and observability.
 
 🔐 The platform follows the **API Gateway pattern**: the API Gateway is the only public entry point for every API. Internal microservices remain private within the cluster, reducing the attack surface and centralizing authentication, authorization, rate limiting, and request handling at a single security boundary.
