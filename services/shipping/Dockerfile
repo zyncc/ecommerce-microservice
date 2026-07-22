@@ -1,29 +1,36 @@
 FROM golang:1.26.4-trixie AS builder
 
 WORKDIR /app
-COPY go.work go.work.sum ./
 
-COPY services/api-gateway ./services/api-gateway
-COPY services/auth ./services/auth
-COPY services/product ./services/product
-COPY services/inventory ./services/inventory
-COPY services/payment ./services/payment
-COPY services/shipping ./services/shipping
+COPY go.work .
+COPY go.work.sum .
+
+COPY services/api-gateway/go.mod services/api-gateway/go.sum ./services/api-gateway/
+COPY services/auth/go.mod services/auth/go.sum ./services/auth/
+COPY services/product/go.mod services/product/go.sum ./services/product/
+COPY services/inventory/go.mod services/inventory/go.sum ./services/inventory/
+COPY services/order/go.mod services/order/go.sum ./services/order/
+COPY services/payment/go.mod services/payment/go.sum ./services/payment/
+COPY services/shipping/go.mod services/shipping/go.sum ./services/shipping/
+COPY services/notification/go.mod services/notification/go.sum ./services/notification/
 
 RUN go work sync
 
+COPY services ./services
+
 WORKDIR /app/services/shipping
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /shipping-service ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -o /shipping-service ./cmd/api
 
 FROM alpine:3.23.5
 
-# required if service makes external HTTPS calls
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
 COPY --from=builder /shipping-service /shipping-service
+
 EXPOSE 8086
 
-CMD [ "/shipping-service" ]
+CMD ["/shipping-service"]

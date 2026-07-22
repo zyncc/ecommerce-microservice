@@ -7,6 +7,10 @@ COPY services/api-gateway ./services/api-gateway
 COPY services/auth ./services/auth
 COPY services/product ./services/product
 COPY services/inventory ./services/inventory
+COPY services/order ./services/order
+COPY services/payment ./services/payment
+COPY services/shipping ./services/shipping
+COPY services/notification ./services/notification
 
 RUN go work sync
 
