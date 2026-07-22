@@ -22,7 +22,7 @@ spec:
       containers:
         - name: order
           image: ghcr.io/zyncc/order:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           resources:
             requests:

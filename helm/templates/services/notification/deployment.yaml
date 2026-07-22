@@ -22,7 +22,7 @@ spec:
       containers:
         - name: notification
           image: ghcr.io/zyncc/notification:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           resources:
             requests:

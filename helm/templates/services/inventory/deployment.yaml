@@ -22,7 +22,7 @@ spec:
       containers:
         - name: inventory
           image: ghcr.io/zyncc/inventory:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           resources:
             requests:

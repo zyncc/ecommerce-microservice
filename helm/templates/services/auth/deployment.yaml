@@ -22,7 +22,7 @@ spec:
       containers:
         - name: auth
           image: ghcr.io/zyncc/auth:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           resources:
             requests:

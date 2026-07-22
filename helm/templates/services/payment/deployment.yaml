@@ -22,7 +22,7 @@ spec:
       containers:
         - name: payment
           image: ghcr.io/zyncc/payment:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           resources:
             requests:

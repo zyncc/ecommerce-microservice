@@ -22,7 +22,7 @@ spec:
       containers:
         - name: product
           image: ghcr.io/zyncc/product:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           resources:
             requests:
