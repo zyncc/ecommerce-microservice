@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-config
+  namespace: ecommerce-microservice
+data:
+  PORT: "8081"
+  APP_ENV: "production"

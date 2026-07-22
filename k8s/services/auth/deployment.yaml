@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-gateway
+  name: auth
   namespace: ecommerce-microservice
   labels:
-    app: api-gateway
+    app: auth
 spec:
   template:
     metadata:
       labels:
-        app: api-gateway
+        app: auth
   selector:
     matchLabels:
-      app: api-gateway
+      app: auth
   replicas: 2
   spec:
     containers:
-      - name: api-gateway
-        image: ghcr.io/zyncc/api-gateway:latest
+      - name: auth
+        image: ghcr.io/zyncc/auth:latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -29,13 +29,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8080
+            port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 8080
+            port: 8081
           initialDelaySeconds: 5
           timeoutSeconds: 2
           successThreshold: 1
@@ -43,9 +43,9 @@ spec:
           periodSeconds: 10
         envFrom:
           - configMapRef:
-              name: api-gateway-config
+              name: auth-config
           - secretRef:
-              name: api-gateway-secret
+              name: auth-secret
         ports:
-          - containerPort: 8080
+          - containerPort: 8081
     restartPolicy: Always

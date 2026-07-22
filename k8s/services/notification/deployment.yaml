@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-gateway
+  name: notification
   namespace: ecommerce-microservice
   labels:
-    app: api-gateway
+    app: notification
 spec:
   template:
     metadata:
       labels:
-        app: api-gateway
+        app: notification
   selector:
     matchLabels:
-      app: api-gateway
+      app: notification
   replicas: 2
   spec:
     containers:
-      - name: api-gateway
-        image: ghcr.io/zyncc/api-gateway:latest
+      - name: notification
+        image: ghcr.io/zyncc/notification:latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -26,16 +26,6 @@ spec:
           limits:
             cpu: 2000m
             memory: 2000Mi
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
           initialDelaySeconds: 5
           timeoutSeconds: 2
           successThreshold: 1
@@ -43,9 +33,7 @@ spec:
           periodSeconds: 10
         envFrom:
           - configMapRef:
-              name: api-gateway-config
+              name: notification-config
           - secretRef:
-              name: api-gateway-secret
-        ports:
-          - containerPort: 8080
+              name: notification-secret
     restartPolicy: Always

@@ -6,7 +6,6 @@ import (
 )
 
 type EnvConfig struct {
-	Port          int    `env:"PORT"`
 	AppEnv        string `env:"APP_ENV"`
 	KafkaBroker   string `env:"KAFKA_BROKER"`
 	FromEmail     string `env:"FROM_EMAIL"`

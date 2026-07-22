@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api-gateway
+  name: shipping
   namespace: ecommerce-microservice
   labels:
-    app: api-gateway
+    app: shipping
 spec:
   template:
     metadata:
       labels:
-        app: api-gateway
+        app: shipping
   selector:
     matchLabels:
-      app: api-gateway
+      app: shipping
   replicas: 2
   spec:
     containers:
-      - name: api-gateway
-        image: ghcr.io/zyncc/api-gateway:latest
+      - name: shipping
+        image: ghcr.io/zyncc/shipping:latest
         imagePullPolicy: IfNotPresent
         resources:
           requests:
@@ -29,13 +29,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8080
+            port: 8086
           initialDelaySeconds: 5
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /healthz
-            port: 8080
+            port: 8086
           initialDelaySeconds: 5
           timeoutSeconds: 2
           successThreshold: 1
@@ -43,9 +43,9 @@ spec:
           periodSeconds: 10
         envFrom:
           - configMapRef:
-              name: api-gateway-config
+              name: shipping-config
           - secretRef:
-              name: api-gateway-secret
+              name: shipping-secret
         ports:
-          - containerPort: 8080
+          - containerPort: 8086
     restartPolicy: Always

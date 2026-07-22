@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-migrations
+  namespace: ecommerce-microservice
+
+spec:
+  backoffLimit: 3
+
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: migrate
+          image: ghcr.io/zyncc/migrations:latest
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z postgres 5432; do
+                echo "Waiting for PostgreSQL..."
+                sleep 2
+              done
+
+              migrate \
+                -path /migrations \
+                -database "$DATABASE_URL" \
+                up
