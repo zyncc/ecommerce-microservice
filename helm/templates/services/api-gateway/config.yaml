@@ -4,12 +4,12 @@ metadata:
   name: api-gateway-config
   namespace: {{ .Values.namespace }}
 data:
-  PORT: "8080"
+  PORT: "{{ .Values.apiGateway.port }}"
   APP_ENV: "production"
-  AUTH_SERVICE_URL: "http://auth:8081"
-  PRODUCT_SERVICE_URL: "http://product:8082"
-  INVENTORY_SERVICE_URL: "http://inventory:8083"
-  ORDER_SERVICE_URL: "http://order:8084"
-  PAYMENT_SERVICE_URL: "http://payment:8085"
-  SHIPMENT_SERVICE_URL: "http://shipment:8086"
+  AUTH_SERVICE_URL: "http://auth:{{ .Values.auth.port }}"
+  PRODUCT_SERVICE_URL: "http://product:{{ .Values.product.port }}"
+  INVENTORY_SERVICE_URL: "http://inventory:{{ .Values.inventory.port }}"
+  ORDER_SERVICE_URL: "http://order:{{ .Values.order.port }}"
+  PAYMENT_SERVICE_URL: "http://payment:{{ .Values.payment.port }}"
+  SHIPMENT_SERVICE_URL: "http://shipping:{{ .Values.shipping.port }}"
   REDIS_URL: "redis:6379"

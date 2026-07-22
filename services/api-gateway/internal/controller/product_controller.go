@@ -68,7 +68,7 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 		Inventory: *req.Inventory,
 	}
 
-	id, err := c.inventoryClient.CreateInventory(r.Context(), inventoryPayload)
+	_, err = c.inventoryClient.CreateInventory(r.Context(), inventoryPayload)
 	if err != nil {
 		if err := c.productClient.DeleteProduct(r.Context(), productID); err != nil {
 			c.log.Error("failed to delete product", zap.Error(err))
@@ -85,7 +85,7 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Product Created", id)
+	utils.SuccessResponse(w, http.StatusOK, "Product Created", productID)
 }
 
 // GetAllProducts godoc

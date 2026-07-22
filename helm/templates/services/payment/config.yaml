@@ -4,5 +4,5 @@ metadata:
   name: payment-config
   namespace: {{ .Values.namespace }}
 data:
-  PORT: "8085"
+  PORT: "{{ .Values.payment.port }}"
   APP_ENV: "production"

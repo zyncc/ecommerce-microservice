@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: product-config
+  name: inventory-config
   namespace: {{ .Values.namespace }}
 data:
-  PORT: "8083"
+  PORT: "{{ .Values.inventory.port }}"
   APP_ENV: "production"

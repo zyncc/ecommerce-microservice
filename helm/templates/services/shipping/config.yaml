@@ -4,5 +4,5 @@ metadata:
   name: shipping-config
   namespace: {{ .Values.namespace }}
 data:
-  PORT: "8086"
+  PORT: "{{ .Values.shipping.port }}"
   APP_ENV: "production"

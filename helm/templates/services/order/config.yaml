@@ -4,8 +4,8 @@ metadata:
   name: order-config
   namespace: {{ .Values.namespace }}
 data:
-  PORT: "8084"
+  PORT: "{{ .Values.order.port }}"
   APP_ENV: "production"
-  AUTH_SERVICE_URL: "http://auth:8081"
-  PRODUCT_SERVICE_URL: "http://product:8082"
-  INVENTORY_SERVICE_URL: "http://inventory:8083"
+  AUTH_SERVICE_URL: "http://auth:{{ .Values.auth.port }}"
+  PRODUCT_SERVICE_URL: "http://product:{{ .Values.product.port }}"
+  INVENTORY_SERVICE_URL: "http://inventory:{{ .Values.inventory.port }}"
