@@ -4,6 +4,8 @@ A production-minded e-commerce backend written in **Go**, built with a **microse
 
 It is designed to demonstrate the systems concerns behind a modern backend: independent services, resilient event processing, caching, authentication, rate limiting, container orchestration, CI, and observability.
 
+🔐 The platform follows the **API Gateway pattern**: the API Gateway is the only public entry point for every API. Internal microservices remain private within the cluster, reducing the attack surface and centralizing authentication, authorization, rate limiting, and request handling at a single security boundary.
+
 ## ✨ Services at a Glance
 
 | Service          | Responsibility                                                                                                                                 |
