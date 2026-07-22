@@ -5,32 +5,35 @@ import (
 	"errors"
 
 	"github.com/IBM/sarama"
-	"github.com/zyncc/ecommerce-microservice/services/payment/internal/repository"
-	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
+	"github.com/zyncc/ecommerce-microservice/services/notification/internal/config"
+	"github.com/zyncc/ecommerce-microservice/services/notification/pkg/types"
 	"go.uber.org/zap"
 )
 
-type PaymentEventHandler struct {
-	paymentRepo *repository.PaymentRepository
+type NotificationEventHandler struct {
 	log         *zap.Logger
+	orderClient *client.OrderClient
+	env         *config.EnvConfig
 }
 
-func NewPaymentEventHandler(log *zap.Logger, paymentRepo *repository.PaymentRepository) *PaymentEventHandler {
-	return &PaymentEventHandler{
-		paymentRepo: paymentRepo,
-		log:         log,
+func NewNotificationEventHandler(log *zap.Logger, orderClient *client.OrderClient, env *config.EnvConfig) *NotificationEventHandler {
+	return &NotificationEventHandler{
+		log,
+		orderClient,
+		env,
 	}
 }
 
-func (h *PaymentEventHandler) Setup(sarama.ConsumerGroupSession) error {
+func (h *NotificationEventHandler) Setup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-func (h *PaymentEventHandler) Cleanup(sarama.ConsumerGroupSession) error {
+func (h *NotificationEventHandler) Cleanup(sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-func (h *PaymentEventHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+func (h *NotificationEventHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for {
 		select {
 		case msg, ok := <-claim.Messages():
@@ -50,7 +53,7 @@ func (h *PaymentEventHandler) ConsumeClaim(session sarama.ConsumerGroupSession, 
 	}
 }
 
-func (h *PaymentEventHandler) processMessage(ctx context.Context, msg *sarama.ConsumerMessage) error {
+func (h *NotificationEventHandler) processMessage(ctx context.Context, msg *sarama.ConsumerMessage) error {
 	switch msg.Topic {
 	case types.PaymentSucceededTopic:
 		if err := h.paymentSucceededEvent(ctx, msg); err != nil {
@@ -63,15 +66,16 @@ func (h *PaymentEventHandler) processMessage(ctx context.Context, msg *sarama.Co
 	return nil
 }
 
-type PaymentConsumer struct {
+type NotificationConsumer struct {
 	Brokers     []string
+	OrderClient *client.OrderClient
+	Env         *config.EnvConfig
 	Topics      []string
 	GroupID     string
-	PaymentRepo *repository.PaymentRepository
 	Log         *zap.Logger
 }
 
-func (c *PaymentConsumer) RunPaymentConsumer(ctx context.Context) error {
+func (c *NotificationConsumer) RunNotificationConsumer(ctx context.Context) error {
 	saramaCfg := sarama.NewConfig()
 	saramaCfg.Consumer.Offsets.AutoCommit.Enable = true
 	saramaCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
@@ -82,7 +86,7 @@ func (c *PaymentConsumer) RunPaymentConsumer(ctx context.Context) error {
 	}
 	defer group.Close()
 
-	handler := NewPaymentEventHandler(c.Log, c.PaymentRepo)
+	handler := NewNotificationEventHandler(c.Log, c.OrderClient, c.Env)
 
 	go func() {
 		for err := range group.Errors() {

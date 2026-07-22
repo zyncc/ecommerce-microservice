@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/IBM/sarama"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/repository"
 	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
 	"go.uber.org/zap"
@@ -13,12 +14,14 @@ import (
 type InventoryEventHandler struct {
 	inventoryRepo *repository.InventoryRepository
 	log           *zap.Logger
+	orderclient   *client.OrderClient
 }
 
-func NewInventoryEventHandler(log *zap.Logger, inventoryRepo *repository.InventoryRepository) *InventoryEventHandler {
+func NewInventoryEventHandler(log *zap.Logger, inventoryRepo *repository.InventoryRepository, orderclient *client.OrderClient) *InventoryEventHandler {
 	return &InventoryEventHandler{
 		inventoryRepo,
 		log,
+		orderclient,
 	}
 }
 
@@ -68,6 +71,7 @@ type InventoryConsumer struct {
 	Topics        []string
 	GroupID       string
 	InventoryRepo *repository.InventoryRepository
+	OrderClient   *client.OrderClient
 	Log           *zap.Logger
 }
 
@@ -82,7 +86,7 @@ func (c *InventoryConsumer) RunInventoryConsumer(ctx context.Context) error {
 	}
 	defer group.Close()
 
-	handler := NewInventoryEventHandler(c.Log, c.InventoryRepo)
+	handler := NewInventoryEventHandler(c.Log, c.InventoryRepo, c.OrderClient)
 
 	go func() {
 		for err := range group.Errors() {

@@ -49,6 +49,6 @@ func (s *InventoryService) FetchInventoryByProductID(ctx context.Context, produc
 	return response, nil
 }
 
-func (s *InventoryService) UpdateInventory(ctx context.Context, productID uuid.UUID, size string, quantity int) error {
-	return s.repo.UpdateInventory(ctx, productID, size, quantity)
+func (s *InventoryService) UpdateInventory(ctx context.Context, req []dto.UpdateInventoryRequest) error {
+	return s.repo.UpdateInventory(ctx, req)
 }

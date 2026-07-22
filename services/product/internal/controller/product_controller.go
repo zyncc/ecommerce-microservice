@@ -85,7 +85,7 @@ func (c *ProductController) GetProductByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	productId, err := c.svc.GetProductByID(r.Context(), id)
+	productID, err := c.svc.GetProductByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, types.ErrProductNotFound) {
 			utils.ErrorResponse(w, http.StatusNotFound, err.Error())
@@ -95,7 +95,7 @@ func (c *ProductController) GetProductByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Fetched Product", &productId)
+	utils.SuccessResponse(w, http.StatusOK, "Fetched Product", &productID)
 }
 
 func (c *ProductController) DeleteProduct(w http.ResponseWriter, r *http.Request) {

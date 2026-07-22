@@ -34,7 +34,8 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, params model.CreateOr
 
 	_, err = tx.Exec(
 		ctx,
-		`INSERT INTO orders (
+		`INSERT INTO orders 
+		(
 			id,
 			user_id,
 			subtotal,
@@ -48,7 +49,8 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, params model.CreateOr
 			city,
 			state,
 			zip
-		) VALUES (
+		) 
+		VALUES (
 			$1, $2, $3, $4, $5, $6, $7,
 			$8, $9, $10, $11, $12, $13
 		)`,
@@ -74,14 +76,16 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, params model.CreateOr
 	for _, item := range params.Items {
 		_, err = tx.Exec(
 			ctx,
-			`INSERT INTO order_items (
+			`INSERT INTO order_items 
+			(
 				id,
 				order_id,
 				product_id,
 				quantity,
 				size,
 				price
-			) VALUES ($1, $2, $3, $4, $5, $6)`,
+			) 
+			VALUES ($1, $2, $3, $4, $5, $6)`,
 			uuid.New(),
 			orderID,
 			item.ProductID,
@@ -109,7 +113,6 @@ func (r *OrderRepository) GetOrder(ctx context.Context, orderID uuid.UUID) (mode
 		SELECT
 		o.id,
 		o.user_id,
-		o.idempotency_key,
 		o.subtotal,
 		o.order_total,
 		o.order_status,
@@ -153,7 +156,6 @@ func (r *OrderRepository) GetOrder(ctx context.Context, orderID uuid.UUID) (mode
 		if err := rows.Scan(
 			&order.ID,
 			&order.UserID,
-			&order.IdempotencyKey,
 			&order.Subtotal,
 			&order.OrderTotal,
 			&order.OrderStatus,
@@ -197,24 +199,49 @@ func (r *OrderRepository) GetOrder(ctx context.Context, orderID uuid.UUID) (mode
 	return order, nil
 }
 
-func (r *OrderRepository) UpdateIdempotencyKeyAndOrderStatus(ctx context.Context, orderID uuid.UUID, key uuid.UUID, status string) error {
+func (r *OrderRepository) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status string) error {
 	tag, err := r.db.Exec(
 		ctx,
 		`
 		UPDATE orders
 		SET 
-		idempotency_key = $1,
-		order_status = $2
-		WHERE id = $3
+		order_status = $1
+		WHERE id = $2
 		`,
-		key, status, orderID,
+		status, orderID,
 	)
 	if err != nil {
-		r.log.Error("failed to update idempotency_key and order_status", zap.Error(err))
+		r.log.Error("failed to update order_status", zap.Error(err))
 		return err
 	}
 
 	if tag.RowsAffected() == 0 {
+		return errors.New("order not found")
+	}
+
+	return nil
+}
+
+func (r *OrderRepository) UpdateOrderStatusWithTrackingID(ctx context.Context, trackingID uuid.UUID, status string) error {
+	tag, err := r.db.Exec(
+		ctx,
+		`
+		UPDATE orders o
+		SET order_status = $1
+		FROM shipments s
+		WHERE o.id = s.order_id
+		AND s.tracking_number = $2
+		`,
+		status,
+		trackingID.String(),
+	)
+	if err != nil {
+		r.log.Error("failed to update order_status", zap.Error(err))
+		return err
+	}
+
+	if tag.RowsAffected() == 0 {
+		r.log.Error("order not found")
 		return errors.New("order not found")
 	}
 

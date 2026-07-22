@@ -8,6 +8,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/payment/internal/repository"
+	"github.com/zyncc/ecommerce-microservice/services/payment/internal/repository/models"
 	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
 	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types/topics"
@@ -16,17 +17,17 @@ import (
 
 type PaymentService struct {
 	log           *zap.Logger
-	orderRepo     *repository.OrderRepository
+	paymentRepo   *repository.PaymentRepository
 	kafkaProducer sarama.SyncProducer
 }
 
-func NewPaymentService(log *zap.Logger, orderRepo *repository.OrderRepository, kafkaProducer sarama.SyncProducer) *PaymentService {
-	return &PaymentService{log, orderRepo, kafkaProducer}
+func NewPaymentService(log *zap.Logger, paymentRepo *repository.PaymentRepository, kafkaProducer sarama.SyncProducer) *PaymentService {
+	return &PaymentService{log, paymentRepo, kafkaProducer}
 }
 
 func (s *PaymentService) ProcessPaymentWebhook(ctx context.Context, req dto.PaymentWebhookRequest) error {
 	// check for idempotency key to prevent duplicate processing
-	exists, err := s.orderRepo.FindOrderByIdempotencyKey(ctx, req.IdempotencyKey)
+	exists, err := s.paymentRepo.FindByIdempotencyKey(ctx, req.IdempotencyKey)
 	if err != nil {
 		return err
 	}
@@ -35,15 +36,26 @@ func (s *PaymentService) ProcessPaymentWebhook(ctx context.Context, req dto.Paym
 		return nil
 	}
 
-	event := topics.PaymentSucceededEvent{
-		EventID:        uuid.New(),
-		IdempotencyKey: req.IdempotencyKey,
-		Amount:         req.Amount,
+	_, err = s.paymentRepo.CreatePayment(ctx, &models.CreatePaymentParams{
 		OrderID:        req.OrderID,
 		Status:         req.Status,
-		OccurredAt:     time.Now(),
+		Amount:         req.Amount,
 		PaymentMethod:  req.PaymentMethod,
 		Currency:       req.Currency,
+		IdempotencyKey: req.IdempotencyKey,
+	})
+	if err != nil {
+		return err
+	}
+
+	event := topics.PaymentSucceededEvent{
+		EventID:       uuid.New(),
+		Amount:        req.Amount,
+		OrderID:       req.OrderID,
+		Status:        req.Status,
+		OccurredAt:    time.Now(),
+		PaymentMethod: req.PaymentMethod,
+		Currency:      req.Currency,
 	}
 
 	payload, err := json.Marshal(event)

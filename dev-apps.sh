@@ -41,6 +41,16 @@ tmux new-window -t "$SESSION" -n payment
 tmux send-keys -t "$SESSION:payment" \
   "cd $ROOT/payment && air" C-m
 
+# Shipping
+tmux new-window -t "$SESSION" -n shipping
+tmux send-keys -t "$SESSION:shipping" \
+  "cd $ROOT/shipping && air" C-m
+
+# Notification
+tmux new-window -t "$SESSION" -n Notification
+tmux send-keys -t "$SESSION:Notification" \
+  "cd $ROOT/notification && air" C-m
+
 # Select the first window
 tmux select-window -t "$SESSION:gateway"
 

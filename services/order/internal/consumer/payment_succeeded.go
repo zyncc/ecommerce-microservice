@@ -18,7 +18,7 @@ func (h *OrderEventHandler) paymentSucceededEvent(ctx context.Context, msg *sara
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	if err := h.orderRepo.UpdateIdempotencyKeyAndOrderStatus(ctx, event.OrderID, event.IdempotencyKey, event.Status); err != nil {
+	if err := h.orderRepo.UpdateOrderStatus(ctx, event.OrderID, event.Status); err != nil {
 		cancel()
 		return err
 	}

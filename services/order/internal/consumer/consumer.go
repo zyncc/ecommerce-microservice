@@ -6,7 +6,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/repository"
-	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
+	"github.com/zyncc/ecommerce-microservice/services/order/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -54,6 +54,10 @@ func (h *OrderEventHandler) processMessage(ctx context.Context, msg *sarama.Cons
 	switch msg.Topic {
 	case types.PaymentSucceededTopic:
 		if err := h.paymentSucceededEvent(ctx, msg); err != nil {
+			return err
+		}
+	case types.ShipmentUpdatedTopic:
+		if err := h.shipmentUpdatedEvent(ctx, msg); err != nil {
 			return err
 		}
 	default:

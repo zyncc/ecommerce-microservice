@@ -2,18 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/zyncc/ecommerce-microservice/services/payment/internal/config"
-	"github.com/zyncc/ecommerce-microservice/services/payment/internal/consumer"
-	"github.com/zyncc/ecommerce-microservice/services/payment/internal/repository"
 	"github.com/zyncc/ecommerce-microservice/services/payment/internal/server"
-	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -24,66 +19,48 @@ func main() {
 	}
 	log := config.NewLogger(env.AppEnv)
 
+	// postgres
 	pool, err := config.InitDB(env.DatabaseURL)
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
-	defer pool.Close()
 
+	// kafka
 	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
 	if err != nil {
 		log.Fatal("failed to connect to kafka", zap.Error(err))
 	}
-	defer kafkaProducer.Close()
 	log.Info("Kafka Producer Running")
+	defer kafkaProducer.Close()
 
-	apiServer := server.NewServer(log, env, pool, kafkaProducer)
+	server := server.NewServer(log, env, pool, kafkaProducer)
 
-	paymentRepo := repository.NewPaymentRepository(log, pool)
+	done := make(chan bool, 1)
 
+	go gracefulShutdown(server, done, log)
+
+	log.Info("Server running", zap.Int("port", env.Port))
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal("Failed to start server", zap.Error(err))
+	}
+}
+
+func gracefulShutdown(apiServer *http.Server, done chan bool, log *zap.Logger) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	var wg sync.WaitGroup
-
-	paymentConsumer := consumer.PaymentConsumer{
-		Log:         log,
-		GroupID:     "payment-service-consumer",
-		PaymentRepo: paymentRepo,
-		Brokers:     []string{env.KafkaBroker},
-		Topics:      []string{types.PaymentSucceededTopic},
-	}
-
-	wg.Go(func() {
-		if err := paymentConsumer.RunPaymentConsumer(ctx); !errors.Is(err, context.Canceled) {
-			log.Fatal("payment consumer exited with error", zap.Error(err))
-		}
-	})
-
-	wg.Add(1)
-	go gracefulShutdown(ctx, apiServer, &wg, log)
-
-	log.Info("Server running", zap.Int("port", env.Port))
-	if err := apiServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatal("Failed to start server", zap.Error(err))
-	}
-
-	wg.Wait()
-	log.Info("shutdown complete")
-}
-
-func gracefulShutdown(ctx context.Context, apiServer *http.Server, wg *sync.WaitGroup, log *zap.Logger) {
-	defer wg.Done()
-
 	<-ctx.Done()
+
 	log.Info("shutting down gracefully, press Ctrl+C again to force")
+	stop()
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	if err := apiServer.Shutdown(shutdownCtx); err != nil {
-		log.Error("Server forced to shutdown with error", zap.Error(err))
+	if err := apiServer.Shutdown(ctx); err != nil {
+		log.Info("Server forced to shutdown", zap.Error(err))
 	}
 
 	log.Info("Server exiting")
+
+	done <- true
 }

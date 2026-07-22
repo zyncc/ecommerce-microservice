@@ -30,9 +30,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// repository
 	orderRepo := repository.NewOrderRepository(s.log, s.pool)
+	orderCache := repository.NewOrderCacheRepository(s.log, s.redis)
 
 	// services
-	orderService := service.NewOrderService(s.log, orderRepo, authClient, productClient, inventoryClient)
+	orderService := service.NewOrderService(s.log, orderRepo, orderCache, authClient, productClient, inventoryClient)
 
 	// controllers
 	orderController := controller.NewOrderController(s.log, orderService)

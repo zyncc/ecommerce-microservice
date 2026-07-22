@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/config"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/consumer"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/repository"
@@ -41,6 +42,12 @@ func main() {
 
 	inventoryRepo := repository.NewInventoryRepository(log, pool)
 
+	httpClient := http.Client{
+		Timeout: time.Second * 5,
+	}
+	// client
+	orderClient := client.NewOrderClient(log, env.OrderServiceURL, &httpClient)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -52,6 +59,7 @@ func main() {
 		InventoryRepo: inventoryRepo,
 		Brokers:       []string{env.KafkaBroker},
 		Topics:        []string{types.PaymentSucceededTopic},
+		OrderClient:   orderClient,
 	}
 
 	wg.Go(func() {

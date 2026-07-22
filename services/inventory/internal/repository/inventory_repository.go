@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/repository/model"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types"
+	"github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types/dto"
 	"go.uber.org/zap"
 )
 
@@ -90,39 +91,41 @@ func (r *InventoryRepository) FindInventoryByProductID(ctx context.Context, prod
 	return inventory, nil
 }
 
-func (r *InventoryRepository) UpdateInventory(
-	ctx context.Context,
-	productID uuid.UUID,
-	size string,
-	quantity int,
-) error {
-	switch size {
-	case "small", "medium", "large", "extra_large":
-	default:
-		return types.ErrInvalidSize
+func (r *InventoryRepository) UpdateInventory(ctx context.Context, items []dto.UpdateInventoryRequest) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
 	}
+	defer tx.Rollback(ctx)
 
-	query := fmt.Sprintf(
-		`
+	for _, item := range items {
+		query := fmt.Sprintf(
+			`
 		UPDATE inventory
 		SET %s = %s - $1,
 		updated_at = NOW()
 		WHERE product_id = $2
 		AND %s >= $1
 		`,
-		size,
-		size,
-		size,
-	)
+			item.Size,
+			item.Size,
+			item.Size,
+		)
 
-	tag, err := r.db.Exec(ctx, query, quantity, productID)
-	if err != nil {
-		r.log.Error("failed to update inventory", zap.Error(err))
-		return types.ErrDatabase
+		tag, err := tx.Exec(ctx, query, item.Quantity, item.ProductID)
+		if err != nil {
+			r.log.Error("failed to update inventory", zap.Error(err))
+			return types.ErrDatabase
+		}
+
+		if tag.RowsAffected() == 0 {
+			return types.ErrInsufficientStock
+		}
 	}
 
-	if tag.RowsAffected() == 0 {
-		return types.ErrInsufficientStock
+	if err := tx.Commit(ctx); err != nil {
+		r.log.Error("failed to commit transaction", zap.Error(err))
+		return types.ErrDatabase
 	}
 
 	return nil

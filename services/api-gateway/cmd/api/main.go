@@ -19,7 +19,9 @@ func main() {
 		panic(err)
 	}
 	log := config.NewLogger()
-	server := server.NewServer(log, env)
+
+	redis := config.ConnectRedis(env)
+	server := server.NewServer(log, env, redis)
 
 	done := make(chan bool, 1)
 

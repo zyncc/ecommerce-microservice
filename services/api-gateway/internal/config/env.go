@@ -13,6 +13,8 @@ type EnvConfig struct {
 	InventoryServiceURL string `env:"INVENTORY_SERVICE_URL"`
 	OrderServiceURL     string `env:"ORDER_SERVICE_URL"`
 	PaymentServiceURL   string `env:"PAYMENT_SERVICE_URL"`
+	ShipmentServiceURL  string `env:"SHIPMENT_SERVICE_URL"`
+	RedisURL            string `env:"REDIS_URL"`
 }
 
 func LoadEnv() (*EnvConfig, error) {

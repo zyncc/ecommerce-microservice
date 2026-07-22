@@ -13,7 +13,7 @@ import (
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/consumer"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/repository"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/server"
-	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types"
+	"github.com/zyncc/ecommerce-microservice/services/order/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -24,12 +24,18 @@ func main() {
 	}
 	log := config.NewLogger(env.AppEnv)
 
+	// postgres
 	pool, err := config.InitDB(env.DatabaseURL)
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
 	defer pool.Close()
 
+	// redis
+	redis := config.ConnectRedis(env)
+	defer redis.Close()
+
+	// kafka
 	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
 	if err != nil {
 		log.Fatal("failed to connect to kafka", zap.Error(err))
@@ -37,7 +43,7 @@ func main() {
 	defer kafkaProducer.Close()
 	log.Info("Kafka Producer Running")
 
-	apiServer := server.NewServer(log, env, pool)
+	apiServer := server.NewServer(log, env, pool, redis)
 
 	orderRepo := repository.NewOrderRepository(log, pool)
 
@@ -51,7 +57,7 @@ func main() {
 		GroupID:   "order-service-consumer",
 		OrderRepo: orderRepo,
 		Brokers:   []string{env.KafkaBroker},
-		Topics:    []string{types.PaymentSucceededTopic},
+		Topics:    []string{types.PaymentSucceededTopic, types.ShipmentUpdatedTopic},
 	}
 
 	wg.Go(func() {

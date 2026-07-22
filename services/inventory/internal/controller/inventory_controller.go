@@ -60,13 +60,13 @@ func (c *InventoryController) GetInventoryByProductID(w http.ResponseWriter, r *
 }
 
 func (c *InventoryController) UpdateInventory(w http.ResponseWriter, r *http.Request) {
-	var req dto.UpdateInventoryRequest
+	var req []dto.UpdateInventoryRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, "failed to parse request body")
 		return
 	}
-	err := c.svc.UpdateInventory(r.Context(), req.ProductID, req.Size, req.Quantity)
+	err := c.svc.UpdateInventory(r.Context(), req)
 	if err != nil {
 		utils.ErrorResponse(w, http.StatusInternalServerError, "failed to update inventory")
 		return

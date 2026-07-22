@@ -19,10 +19,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Use(chimiddleware.Recoverer)
 
 	// repositories
-	orderRepo := repository.NewOrderRepository(s.log, s.pool)
+	paymentRepo := repository.NewPaymentRepository(s.log, s.pool)
 
 	// services
-	paymentService := service.NewPaymentService(s.log, orderRepo, s.kafkaProducer)
+	paymentService := service.NewPaymentService(s.log, paymentRepo, s.kafkaProducer)
 
 	// controllers
 	paymentController := controller.NewPaymentController(s.log, paymentService)

@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    idempotency_key UUID,
 
     subtotal NUMERIC(10,2) NOT NULL,
     order_total NUMERIC(10,2) NOT NULL,
@@ -20,5 +19,3 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_orders_idempotency_key ON orders(idempotency_key);

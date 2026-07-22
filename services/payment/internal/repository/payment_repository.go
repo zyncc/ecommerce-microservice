@@ -30,17 +30,19 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, params *models.Cr
 		(
 			id,
 			order_id,
+			idempotency_key,
 			status,
 			amount,
 			payment_method,
 			currency
 		)
 		VALUES (
-			$1, $2, $3, $4, $5, $6
+			$1, $2, $3, $4, $5, $6, $7
 		)
 		`,
 		id,
 		params.OrderID,
+		params.IdempotencyKey,
 		params.Status,
 		params.Amount,
 		params.PaymentMethod,
@@ -52,4 +54,25 @@ func (r *PaymentRepository) CreatePayment(ctx context.Context, params *models.Cr
 	}
 
 	return id, nil
+}
+
+func (r *PaymentRepository) FindByIdempotencyKey(ctx context.Context, key uuid.UUID) (bool, error) {
+	var exists bool
+
+	err := r.db.QueryRow(
+		ctx,
+		`
+		SELECT EXISTS (
+			SELECT 1
+			FROM payments
+			WHERE idempotency_key = $1
+		)
+		`,
+		key,
+	).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
 }

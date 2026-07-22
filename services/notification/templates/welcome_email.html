@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome Email</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        margin-top: 0px;
+        margin-right: 0px;
+        margin-bottom: 0px;
+        margin-left: 0px;
+        padding-top: 0px;
+        padding-right: 0px;
+        padding-bottom: 0px;
+        padding-left: 0px;
+      }
+      .container {
+        width: 100%;
+        max-width: 600px;
+        margin-top: auto;
+        margin-right: auto;
+        margin-bottom: auto;
+        margin-left: auto;
+        background-color: rgb(245, 245, 245);
+        padding-top: 20px;
+        padding-right: 20px;
+        padding-bottom: 20px;
+        padding-left: 20px;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 8px;
+        border-bottom-left-radius: 8px;
+        box-shadow: rgba(0, 0, 0, 0.1) 0px 2px 4px;
+      }
+      .header {
+        text-align: center;
+        padding-top: 20px;
+        padding-right: 0px;
+        padding-bottom: 20px;
+        padding-left: 0px;
+      }
+      .header img {
+        max-width: 100px;
+      }
+      .content {
+        margin-top: 20px;
+        margin-right: 0px;
+        margin-bottom: 20px;
+        margin-left: 0px;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+        color: rgb(119, 119, 119);
+      }
+      .social-icons img {
+        width: 24px;
+        margin-top: 0px;
+        margin-right: 10px;
+        margin-bottom: 0px;
+        margin-left: 10px;
+      }
+    </style>
+  </head>
+  <body id="ia2u">
+    <meta charset="UTF-8" /><meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    /><title>Welcome Email</title>
+    <div class="container">
+      <div class="header"><h1 id="ilfi">Welcome!</h1></div>
+      <div class="content">
+        <p>Hello {{.Name}},</p>
+        <p>
+          We are excited to let you know that your account has been created with
+          the email address {{.Email}}.
+        </p>
+        <p>Thank you for joining us!</p>
+      </div>
+      <div class="footer">
+        <p>© 2026 Your Company. All rights reserved.</p>
+      </div>
+    </div>
+  </body>
+</html>

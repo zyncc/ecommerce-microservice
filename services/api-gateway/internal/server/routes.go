@@ -21,7 +21,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.ClientIPFromRemoteAddr)
+	r.Use(chimiddleware.ClientIPFromHeader("X-Forwarded-For"))
 	r.Use(middleware.Logger(s.log))
 	r.Use(chimiddleware.Recoverer)
 
@@ -43,6 +43,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	inventoryClient := client.NewInventoryClient(s.log, s.env.InventoryServiceURL, httpClient)
 	orderClient := client.NewOrderClient(s.log, s.env.OrderServiceURL, httpClient)
 	paymentClient := client.NewPaymentClient(s.log, s.env.PaymentServiceURL, httpClient)
+	shipmentClient := client.NewShipmentClient(s.log, s.env.ShipmentServiceURL, httpClient)
 
 	// controller
 	authController := controller.NewAuthController(s.log, authClient)
@@ -50,6 +51,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	orderController := controller.NewOrderController(s.log, orderClient)
 	inventoryController := controller.NewInventoryController(s.log, inventoryClient)
 	paymentController := controller.NewPaymentController(s.log, paymentClient)
+	shipmentController := controller.NewShipmentController(s.log, shipmentClient)
 
 	// middleware
 	authMiddleware := middleware.NewAuthMiddleware(s.log, authClient)
@@ -63,6 +65,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	))
 
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(middleware.RateLimiter(s.redis, 5, 1))
+
 		r.HandleFunc("POST /signup", authController.SignUp)
 		r.HandleFunc("POST /signin", authController.SignIn)
 		r.HandleFunc("POST /refresh", authController.RefreshToken)
@@ -72,10 +76,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		r.HandleFunc("GET /inventory/{productID}", inventoryController.FetchInventoryByProductID)
 
-		r.HandleFunc("GET /order/{orderID}", orderController.FindOrderByOrderID)
-
 		// webhooks
 		r.HandleFunc("POST /webhook/payment", paymentController.PaymentWebhook)
+		r.HandleFunc("POST /webhook/shipment", shipmentController.ShipmentWebhook)
 
 		// authenticated routes
 		r.Group(func(r chi.Router) {
@@ -88,6 +91,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 			r.HandleFunc("GET /address", authController.FetchAllAddresses)
 
 			r.HandleFunc("POST /order", orderController.CreateOrder)
+			r.HandleFunc("GET /order/{orderID}", orderController.FindOrderByOrderID)
+
+			r.HandleFunc("GET /shipment", shipmentController.GetShipmentByTrackingID)
 		})
 
 		// admin routes

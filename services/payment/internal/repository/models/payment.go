@@ -7,12 +7,13 @@ import (
 )
 
 type Payment struct {
-	ID            uuid.UUID
-	OrderID       uuid.UUID
-	Status        string
-	Amount        float64
-	PaymentMethod string
-	Currency      string
+	ID             uuid.UUID
+	OrderID        uuid.UUID
+	IdempotencyKey uuid.UUID
+	Status         string
+	Amount         float64
+	PaymentMethod  string
+	Currency       string
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

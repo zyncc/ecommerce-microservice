@@ -20,13 +20,21 @@ import (
 type OrderService struct {
 	log             *zap.Logger
 	repo            *repository.OrderRepository
+	redis           *repository.OrderCacheRepository
 	authClient      *client.AuthClient
 	productClient   *client.ProductClient
 	inventoryClient *client.InventoryClient
 }
 
-func NewOrderService(log *zap.Logger, repo *repository.OrderRepository, authClient *client.AuthClient, productClient *client.ProductClient, inventoryClient *client.InventoryClient) *OrderService {
-	return &OrderService{log, repo, authClient, productClient, inventoryClient}
+func NewOrderService(log *zap.Logger, repo *repository.OrderRepository, cache *repository.OrderCacheRepository, authClient *client.AuthClient, productClient *client.ProductClient, inventoryClient *client.InventoryClient) *OrderService {
+	return &OrderService{
+		log,
+		repo,
+		cache,
+		authClient,
+		productClient,
+		inventoryClient,
+	}
 }
 
 func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderRequest) (uuid.UUID, error) {
@@ -133,11 +141,28 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 }
 
 func (s *OrderService) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error) {
-	order, err := s.repo.GetOrder(ctx, orderID)
+	order, err := s.redis.GetOrderByID(ctx, orderID)
+	if err == nil {
+		s.log.Info("cache hit for find by order id")
+		return mapOrderToResponse(order), nil
+	}
+	s.log.Info("cache miss for find by order id", zap.Error(err))
+
+	order, err = s.repo.GetOrder(ctx, orderID)
 	if err != nil {
 		return dto.FindOrderByIDResponse{}, err
 	}
 
+	if err := s.redis.SetOrderByID(ctx, order.ID, order); err != nil {
+		s.log.Error("failed to set cache for order by id", zap.Error(err))
+	}
+
+	orderResp := mapOrderToResponse(order)
+
+	return orderResp, nil
+}
+
+func mapOrderToResponse(order model.OrderWithItems) dto.FindOrderByIDResponse {
 	var orderItemsResp []dto.OrderItems
 
 	for _, item := range order.OrderItems {
@@ -156,25 +181,24 @@ func (s *OrderService) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID
 	}
 
 	orderResp := dto.FindOrderByIDResponse{
-		ID:             order.ID,
-		UserID:         order.UserID,
-		IdempotencyKey: order.IdempotencyKey,
-		Subtotal:       order.Subtotal,
-		OrderTotal:     order.OrderTotal,
-		OrderStatus:    order.OrderStatus,
-		FirstName:      order.FirstName,
-		LastName:       order.LastName,
-		Email:          order.Email,
-		Phone:          order.Phone,
-		Address1:       order.Address1,
-		Address2:       order.Address2,
-		City:           order.City,
-		State:          order.State,
-		Zip:            order.Zip,
-		CreatedAt:      order.CreatedAt,
-		UpdatedAt:      order.UpdatedAt,
-		OrderItems:     orderItemsResp,
+		ID:          order.ID,
+		UserID:      order.UserID,
+		Subtotal:    order.Subtotal,
+		OrderTotal:  order.OrderTotal,
+		OrderStatus: order.OrderStatus,
+		FirstName:   order.FirstName,
+		LastName:    order.LastName,
+		Email:       order.Email,
+		Phone:       order.Phone,
+		Address1:    order.Address1,
+		Address2:    order.Address2,
+		City:        order.City,
+		State:       order.State,
+		Zip:         order.Zip,
+		CreatedAt:   order.CreatedAt,
+		UpdatedAt:   order.UpdatedAt,
+		OrderItems:  orderItemsResp,
 	}
 
-	return orderResp, nil
+	return orderResp
 }

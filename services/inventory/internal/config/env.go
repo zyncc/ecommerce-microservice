@@ -6,10 +6,11 @@ import (
 )
 
 type EnvConfig struct {
-	Port        int    `env:"PORT"`
-	AppEnv      string `env:"APP_ENV"`
-	DatabaseURL string `env:"DATABASE_URL"`
-	KafkaBroker string `env:"KAFKA_BROKER"`
+	Port            int    `env:"PORT"`
+	AppEnv          string `env:"APP_ENV"`
+	DatabaseURL     string `env:"DATABASE_URL"`
+	KafkaBroker     string `env:"KAFKA_BROKER"`
+	OrderServiceURL string `env:"ORDER_SERVICE_URL"`
 }
 
 func LoadEnv() (*EnvConfig, error) {
