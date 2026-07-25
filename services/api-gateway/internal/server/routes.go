@@ -54,7 +54,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 		s.log.Error("failed to initialize grpc product client", zap.Error(err))
 	}
 
-	orderClient := client.NewOrderClient(s.log, s.env.OrderServiceURL, httpClient)
+	orderClient, err := client.NewOrderGRPCClient(s.log, s.env.OrderServiceURL)
+	if err != nil {
+		s.log.Error("failed to initialize grpc product client", zap.Error(err))
+	}
+
 	paymentClient := client.NewPaymentClient(s.log, s.env.PaymentServiceURL, httpClient)
 	shipmentClient := client.NewShipmentClient(s.log, s.env.ShipmentServiceURL, httpClient)
 

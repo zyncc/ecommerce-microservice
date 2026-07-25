@@ -14,10 +14,10 @@ import (
 type InventoryEventHandler struct {
 	inventoryRepo *repository.InventoryRepository
 	log           *zap.Logger
-	orderclient   *client.OrderClient
+	orderclient   client.OrderClient
 }
 
-func NewInventoryEventHandler(log *zap.Logger, inventoryRepo *repository.InventoryRepository, orderclient *client.OrderClient) *InventoryEventHandler {
+func NewInventoryEventHandler(log *zap.Logger, inventoryRepo *repository.InventoryRepository, orderclient client.OrderClient) *InventoryEventHandler {
 	return &InventoryEventHandler{
 		inventoryRepo,
 		log,
@@ -71,7 +71,7 @@ type InventoryConsumer struct {
 	Topics        []string
 	GroupID       string
 	InventoryRepo *repository.InventoryRepository
-	OrderClient   *client.OrderClient
+	OrderClient   client.OrderClient
 	Log           *zap.Logger
 }
 

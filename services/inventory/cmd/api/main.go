@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/config"
@@ -42,12 +40,11 @@ func main() {
 	defer kafkaProducer.Close()
 	log.Info("Kafka Producer Running")
 
-	httpClient := http.Client{
-		Timeout: time.Second * 5,
-	}
-
 	// client
-	orderClient := client.NewOrderClient(log, env.OrderServiceURL, &httpClient)
+	orderClient, err := client.NewOrderGRPCClient(log, env.OrderServiceURL)
+	if err != nil {
+		log.Fatal("failed to initialize order grpc client", zap.Error(err))
+	}
 
 	// repository
 	inventoryRepo := repository.NewInventoryRepository(log, pool)

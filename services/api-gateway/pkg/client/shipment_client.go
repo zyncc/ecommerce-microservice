@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -63,10 +64,8 @@ func (c *ShipmentClient) ShipmentWebhook(ctx context.Context, req dto.ShipmentWe
 			zap.Int("status", body.Code),
 			zap.String("message", body.Message),
 		)
-		return &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
+		// TODO
+		return errors.New("webhook failed")
 	}
 
 	return nil
@@ -99,10 +98,8 @@ func (c *ShipmentClient) GetShipmentByTrackingID(ctx context.Context, trackingID
 			zap.Int("status", body.Code),
 			zap.String("message", body.Message),
 		)
-		return dto.ShipmentResponse{}, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
+		// TODO
+		return dto.ShipmentResponse{}, errors.New("failed")
 	}
 
 	return body.Data, nil

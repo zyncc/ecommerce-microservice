@@ -1,103 +1,131 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
+	pb "github.com/zyncc/ecommerce-microservice/services/order/pkg/types/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-type OrderClient struct {
+type OrderClient interface {
+	CreateOrder(ctx context.Context, req *dto.CreateOrderRequest) (uuid.UUID, error)
+	FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error)
+}
+
+type OrderGRPCClient struct {
+	client      pb.OrderServiceClient
 	log         *zap.Logger
 	orderSvcURL string
-	httpClient  *http.Client
 }
 
-func NewOrderClient(log *zap.Logger, orderSvcURL string, httpClient *http.Client) *OrderClient {
-	return &OrderClient{
-		log,
-		orderSvcURL,
-		httpClient,
+func NewOrderGRPCClient(log *zap.Logger, addr string) (*OrderGRPCClient, error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
 	}
+
+	return &OrderGRPCClient{
+		log:         log,
+		client:      pb.NewOrderServiceClient(conn),
+		orderSvcURL: addr,
+	}, nil
 }
 
-func (c *OrderClient) CreateOrder(ctx context.Context, req *dto.CreateOrderRequest) (uuid.UUID, error) {
-	reqBody, err := json.Marshal(req)
+func (c *OrderGRPCClient) CreateOrder(ctx context.Context, req *dto.CreateOrderRequest) (uuid.UUID, error) {
+	var items []*pb.OrderItem
+	for _, item := range req.Items {
+		items = append(items, &pb.OrderItem{
+			ProductId: item.ProductID.String(),
+			Quantity:  int32(item.Quantity),
+			Size:      item.Size,
+			Price:     item.Price,
+		})
+	}
+
+	resp, err := c.client.CreateOrder(ctx, &pb.CreateOrderRequest{
+		Items:     items,
+		UserId:    req.UserID.String(),
+		AddressId: req.AddressID.String(),
+	})
 	if err != nil {
-		c.log.Error("failed to marshal json data", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return uuid.Nil, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/order", c.orderSvcURL), bytes.NewReader(reqBody))
+	orderID, err := uuid.Parse(resp.GetId())
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return uuid.Nil, err
 	}
 
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[uuid.UUID]
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"order service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return uuid.Nil, errors.New("failed to create order")
-	}
-
-	return body.Data, nil
+	return orderID, nil
 }
 
-func (c *OrderClient) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/order/%s", c.orderSvcURL, orderID.String()), nil)
+func (c *OrderGRPCClient) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error) {
+	resp, err := c.client.FindOrderByID(ctx, &pb.IDMessage{Id: orderID.String()})
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return dto.FindOrderByIDResponse{}, utils.ErrSomethingWentWrong
+		c.log.Error("order service returned error", zap.Error(err))
+		return dto.FindOrderByIDResponse{}, err
 	}
 
-	resp, err := c.httpClient.Do(request)
+	id, err := uuid.Parse(resp.GetId())
 	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return dto.FindOrderByIDResponse{}, utils.ErrSomethingWentWrong
+		return dto.FindOrderByIDResponse{}, err
 	}
-	defer resp.Body.Close()
 
-	var body utils.Success[dto.FindOrderByIDResponse]
-	err = json.NewDecoder(resp.Body).Decode(&body)
+	userID, err := uuid.Parse(resp.GetUserId())
 	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return dto.FindOrderByIDResponse{}, utils.ErrSomethingWentWrong
+		return dto.FindOrderByIDResponse{}, err
 	}
 
-	if !body.Success {
-		c.log.Error(
-			"order service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return dto.FindOrderByIDResponse{}, errors.New("failed to fetch order by id")
+	orderItems := make([]dto.OrderItems, 0, len(resp.GetOrderItems()))
+	for _, item := range resp.GetOrderItems() {
+		itemID, err := uuid.Parse(item.GetId())
+		if err != nil {
+			return dto.FindOrderByIDResponse{}, err
+		}
+
+		orderItemOrderID, err := uuid.Parse(item.GetOrderId())
+		if err != nil {
+			return dto.FindOrderByIDResponse{}, err
+		}
+
+		productID, err := uuid.Parse(item.GetProductId())
+		if err != nil {
+			return dto.FindOrderByIDResponse{}, err
+		}
+
+		orderItems = append(orderItems, dto.OrderItems{
+			ID:        itemID,
+			OrderID:   orderItemOrderID,
+			ProductID: productID,
+			Quantity:  int(item.GetQuantity()),
+			Size:      item.GetSize(),
+			Price:     item.GetPrice(),
+			CreatedAt: item.GetCreatedAt().AsTime(),
+			UpdatedAt: item.GetUpdatedAt().AsTime(),
+		})
 	}
 
-	return body.Data, nil
+	return dto.FindOrderByIDResponse{
+		ID:          id,
+		UserID:      userID,
+		Subtotal:    resp.GetSubtotal(),
+		OrderTotal:  resp.GetOrderTotal(),
+		OrderStatus: resp.GetOrderStatus(),
+		FirstName:   resp.GetFirstName(),
+		LastName:    resp.LastName,
+		Email:       resp.GetEmail(),
+		Phone:       resp.GetPhone(),
+		Address1:    resp.GetAddress_1(),
+		Address2:    resp.Address_2,
+		City:        resp.GetCity(),
+		State:       resp.GetState(),
+		Zip:         resp.GetZip(),
+		CreatedAt:   resp.GetCreatedAt().AsTime(),
+		UpdatedAt:   resp.GetUpdatedAt().AsTime(),
+		OrderItems:  orderItems,
+	}, nil
 }

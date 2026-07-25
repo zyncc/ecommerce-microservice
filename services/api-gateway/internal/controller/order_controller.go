@@ -14,10 +14,10 @@ import (
 
 type OrderController struct {
 	log         *zap.Logger
-	orderClient *client.OrderClient
+	orderClient client.OrderClient
 }
 
-func NewOrderController(log *zap.Logger, orderClient *client.OrderClient) *OrderController {
+func NewOrderController(log *zap.Logger, orderClient client.OrderClient) *OrderController {
 	return &OrderController{
 		log,
 		orderClient,
@@ -54,7 +54,7 @@ func (c *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	orderID, err := c.orderClient.CreateOrder(r.Context(), &req)
 	if err != nil {
-		c.log.Error("failed to create product", zap.Error(err))
+		c.log.Error("failed to create order", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}

@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"errors"
-	"net/http"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/notification/internal/config"
@@ -35,10 +33,10 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	httpClient := http.Client{
-		Timeout: time.Second * 5,
+	orderClient, err := client.NewOrderGRPCClient(log, env.AppEnv)
+	if err != nil {
+		log.Fatal("failed to initialize order grpc client", zap.Error(err))
 	}
-	orderClient := client.NewOrderClient(log, env.AppEnv, &httpClient)
 
 	notificationConsumer := consumer.NotificationConsumer{
 		Log:         log,

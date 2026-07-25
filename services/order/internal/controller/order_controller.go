@@ -29,11 +29,13 @@ func NewOrderController(log *zap.Logger, svc *service.OrderService) *OrderContro
 func (c *OrderController) CreateOrder(ctx context.Context, in *pb.CreateOrderRequest) (*pb.IDMessage, error) {
 	userID, err := uuid.Parse(in.GetUserId())
 	if err != nil {
+		c.log.Error("failed to parse user_id", zap.String("user_id", in.GetUserId()), zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
 	addressID, err := uuid.Parse(in.GetAddressId())
 	if err != nil {
+		c.log.Error("failed to parse address_id", zap.String("address_id", in.GetAddressId()), zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, "invalid address_id")
 	}
 
@@ -41,6 +43,7 @@ func (c *OrderController) CreateOrder(ctx context.Context, in *pb.CreateOrderReq
 	for _, item := range in.GetItems() {
 		productID, err := uuid.Parse(item.GetProductId())
 		if err != nil {
+			c.log.Error("failed to parse product_id", zap.String("product_id", item.GetProductId()), zap.Error(err))
 			return nil, status.Error(codes.InvalidArgument, "invalid product_id")
 		}
 
@@ -60,6 +63,7 @@ func (c *OrderController) CreateOrder(ctx context.Context, in *pb.CreateOrderReq
 
 	id, err := c.svc.CreateOrder(ctx, req)
 	if err != nil {
+		c.log.Error("failed to create order", zap.Any("request", req), zap.Error(err))
 		return nil, status.Error(codes.Internal, "failed to create order")
 	}
 
@@ -79,6 +83,20 @@ func (c *OrderController) FindOrderByID(ctx context.Context, in *pb.IDMessage) (
 		return nil, status.Error(codes.Internal, "failed to find order by id")
 	}
 
+	var orderItems []*pb.OrderItems
+	for _, item := range order.OrderItems {
+		orderItems = append(orderItems, &pb.OrderItems{
+			Id:        item.ID.String(),
+			OrderId:   item.OrderID.String(),
+			ProductId: item.ProductID.String(),
+			Quantity:  int32(item.Quantity),
+			Size:      item.Size,
+			Price:     item.Price,
+			CreatedAt: timestamppb.New(item.CreatedAt),
+			UpdatedAt: timestamppb.New(item.UpdatedAt),
+		})
+	}
+
 	return &pb.Order{
 		Id:          order.ID.String(),
 		UserId:      order.UserID.String(),
@@ -96,6 +114,6 @@ func (c *OrderController) FindOrderByID(ctx context.Context, in *pb.IDMessage) (
 		Zip:         order.Zip,
 		CreatedAt:   timestamppb.New(order.CreatedAt),
 		UpdatedAt:   timestamppb.New(order.UpdatedAt),
-		OrderItems:  []*pb.OrderItems{},
+		OrderItems:  orderItems,
 	}, nil
 }
