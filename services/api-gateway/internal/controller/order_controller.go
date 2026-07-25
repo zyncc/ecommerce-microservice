@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -55,11 +54,6 @@ func (c *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	orderID, err := c.orderClient.CreateOrder(r.Context(), &req)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to create product", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		c.log.Error("failed to create product", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
@@ -93,11 +87,6 @@ func (c *OrderController) FindOrderByOrderID(w http.ResponseWriter, r *http.Requ
 
 	order, err := c.orderClient.FindOrderByOrderID(r.Context(), orderID)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to create product", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		c.log.Error("failed to create product", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return

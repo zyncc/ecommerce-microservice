@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -12,8 +11,8 @@ import (
 	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/types"
 )
 
-func GetSession(r *http.Request) (types.Session, error) {
-	token, err := parseJWT(r.Header.Get("Authorization"))
+func GetSession(bearerToken string) (types.Session, error) {
+	token, err := parseJWT(bearerToken)
 	if err != nil {
 		return types.Session{}, err
 	}

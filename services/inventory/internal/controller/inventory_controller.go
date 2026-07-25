@@ -1,76 +1,46 @@
 package controller
 
 import (
-	"encoding/json"
-	"net/http"
+	"context"
 
 	"github.com/google/uuid"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/inventory/internal/service"
-	"github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types/dto"
+	pb "github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type InventoryController struct {
+	pb.UnimplementedInventoryServiceServer
 	log *zap.Logger
 	svc *service.InventoryService
 }
 
 func NewInventoryController(log *zap.Logger, svc *service.InventoryService) *InventoryController {
-	return &InventoryController{log, svc}
+	return &InventoryController{
+		log: log,
+		svc: svc,
+	}
 }
 
-func (c *InventoryController) CreateInventory(w http.ResponseWriter, r *http.Request) {
-	var req dto.CreateInventoryRequest
+func (c *InventoryController) GetInventoryByProductID(ctx context.Context, in *pb.IDMessage) (*pb.GetInventoryResponse, error) {
+	productID, _ := uuid.Parse(in.GetId())
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	id, err := c.svc.CreateInventory(r.Context(), &req)
+	inventory, err := c.svc.FetchInventoryByProductID(ctx, productID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	utils.SuccessResponse(w, http.StatusCreated, "created inventory", id)
-}
-
-func (c *InventoryController) GetInventoryByProductID(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("productID")
-	if id == "" {
-		c.log.Debug("product id not provided in path value")
-		utils.ErrorResponse(w, http.StatusBadRequest, "product id is required")
-		return
-	}
-
-	productID, err := uuid.Parse(id)
-	if err != nil {
-		c.log.Debug("failed to parse UUID", zap.Error(err))
-		utils.ErrorResponse(w, http.StatusBadRequest, "product id is not a valid uuid")
-	}
-
-	inventory, err := c.svc.FetchInventoryByProductID(r.Context(), productID)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "failed to fetch inventory")
-		return
-	}
-
-	utils.SuccessResponse(w, http.StatusCreated, "fetched inventory", inventory)
-}
-
-func (c *InventoryController) UpdateInventory(w http.ResponseWriter, r *http.Request) {
-	var req []dto.UpdateInventoryRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "failed to parse request body")
-		return
-	}
-	err := c.svc.UpdateInventory(r.Context(), req)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "failed to update inventory")
-		return
-	}
-
-	utils.SuccessResponse[any](w, http.StatusCreated, "Updated Inventory", nil)
+	return &pb.GetInventoryResponse{
+		Id:         inventory.ID.String(),
+		ProductId:  inventory.ProductID.String(),
+		Small:      int32(inventory.Small),
+		Medium:     int32(inventory.Medium),
+		Large:      int32(inventory.Large),
+		ExtraLarge: int32(inventory.ExtraLarge),
+		CreatedAt:  timestamppb.New(inventory.CreatedAt),
+		UpdatedAt:  timestamppb.New(inventory.UpdatedAt),
+	}, nil
 }

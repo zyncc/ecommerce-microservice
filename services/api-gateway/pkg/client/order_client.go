@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -62,10 +63,7 @@ func (c *OrderClient) CreateOrder(ctx context.Context, req *dto.CreateOrderReque
 			zap.Int("status", body.Code),
 			zap.String("message", body.Message),
 		)
-		return uuid.Nil, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
+		return uuid.Nil, errors.New("failed to create order")
 	}
 
 	return body.Data, nil
@@ -98,10 +96,7 @@ func (c *OrderClient) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID)
 			zap.Int("status", body.Code),
 			zap.String("message", body.Message),
 		)
-		return dto.FindOrderByIDResponse{}, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
+		return dto.FindOrderByIDResponse{}, errors.New("failed to fetch order by id")
 	}
 
 	return body.Data, nil

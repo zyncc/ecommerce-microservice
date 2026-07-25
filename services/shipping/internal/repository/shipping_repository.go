@@ -9,6 +9,13 @@ import (
 	"go.uber.org/zap"
 )
 
+type ShipmentRepo interface {
+	CreateShipment(ctx context.Context, params *models.CreateShipmentParams) (uuid.UUID, error)
+	FindShipmentByIdempotencyKey(ctx context.Context, idempotencyKey uuid.UUID) (bool, error)
+	GetShipmentByTrackingID(ctx context.Context, trackingID uuid.UUID) (models.Shipment, error)
+	UpdateShipment(ctx context.Context, params models.UpdateShipmentParams) error
+}
+
 type ShipmentRepository struct {
 	log *zap.Logger
 	db  *pgxpool.Pool
@@ -21,7 +28,7 @@ func NewShippingRepository(log *zap.Logger, db *pgxpool.Pool) *ShipmentRepositor
 	}
 }
 
-func (r *ShipmentRepository) CreateShipment(ctx context.Context, params *models.CreateShipmentParams) (uuid.UUID, error) {
+func (r ShipmentRepository) CreateShipment(ctx context.Context, params *models.CreateShipmentParams) (uuid.UUID, error) {
 	_, err := r.db.Exec(
 		ctx,
 		`
@@ -51,7 +58,7 @@ func (r *ShipmentRepository) CreateShipment(ctx context.Context, params *models.
 	return params.ID, nil
 }
 
-func (r *ShipmentRepository) FindShipmentByIdempotencyKey(ctx context.Context, idempotencyKey uuid.UUID) (bool, error) {
+func (r ShipmentRepository) FindShipmentByIdempotencyKey(ctx context.Context, idempotencyKey uuid.UUID) (bool, error) {
 	var exists bool
 	err := r.db.QueryRow(
 		ctx,
@@ -71,7 +78,7 @@ func (r *ShipmentRepository) FindShipmentByIdempotencyKey(ctx context.Context, i
 	return exists, err
 }
 
-func (r *ShipmentRepository) GetShipmentByTrackingID(ctx context.Context, trackingID uuid.UUID) (models.Shipment, error) {
+func (r ShipmentRepository) GetShipmentByTrackingID(ctx context.Context, trackingID uuid.UUID) (models.Shipment, error) {
 	var shipment models.Shipment
 	err := r.db.QueryRow(
 		ctx,
@@ -112,12 +119,12 @@ func (r *ShipmentRepository) GetShipmentByTrackingID(ctx context.Context, tracki
 	return shipment, nil
 }
 
-func (r *ShipmentRepository) UpdateShipment(ctx context.Context, params models.UpdateShipmentParams) error {
+func (r ShipmentRepository) UpdateShipment(ctx context.Context, params models.UpdateShipmentParams) error {
 	query := `
 		UPDATE shipments
 		SET 
 		status = $1,
-    shipped_at = COALESCE($2, shipped_at),
+    	shipped_at = COALESCE($2, shipped_at),
 		delivered_at = COALESCE($3, delivered_at),
 		idempotency_key = $4,
 		updated_at = NOW()

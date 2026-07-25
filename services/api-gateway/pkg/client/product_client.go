@@ -1,176 +1,107 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
+	pb "github.com/zyncc/ecommerce-microservice/services/product/pkg/types/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-type ProductClient struct {
+type ProductClient interface {
+	CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (uuid.UUID, error)
+	GetAllProducts(ctx context.Context, limit, offset int) ([]dto.Product, error)
+	GetProductByID(ctx context.Context, id uuid.UUID) (dto.Product, error)
+}
+
+type GRPCProductClient struct {
 	log           *zap.Logger
 	productSvcURL string
-	httpClient    *http.Client
+	client        pb.ProductServiceClient
 }
 
-func NewProductClient(log *zap.Logger, productSvcURL string, httpClient *http.Client) *ProductClient {
-	return &ProductClient{
-		log,
-		productSvcURL,
-		httpClient,
+func NewGRPCProductClient(log *zap.Logger, addr string) (*GRPCProductClient, error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
 	}
+
+	return &GRPCProductClient{
+		log:           log,
+		productSvcURL: addr,
+		client:        pb.NewProductServiceClient(conn),
+	}, nil
 }
 
-func (c *ProductClient) CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (uuid.UUID, error) {
-	reqBody, err := json.Marshal(req)
+func (c *GRPCProductClient) CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (uuid.UUID, error) {
+	resp, err := c.client.CreateProduct(ctx, &pb.CreateProductRequest{
+		Title:       req.Title,
+		Description: req.Description,
+		Price:       req.Price,
+		Category:    req.Category,
+		Inventory: &pb.Inventory{
+			Small:      int32(*req.Inventory.Small),
+			Medium:     int32(*req.Inventory.Medium),
+			Large:      int32(*req.Inventory.Large),
+			ExtraLarge: int32(*req.Inventory.ExtraLarge),
+		},
+	})
 	if err != nil {
-		c.log.Error("failed to marshal json data", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return uuid.Nil, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/product", c.productSvcURL), bytes.NewReader(reqBody))
+	productID, _ := uuid.Parse(resp.GetId())
+
+	return productID, nil
+}
+
+func (c *GRPCProductClient) GetAllProducts(ctx context.Context, limit, offset int) ([]dto.Product, error) {
+	resp, err := c.client.GetAllProducts(ctx, &pb.GetAllProductsRequest{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return nil, err
 	}
 
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[uuid.UUID]
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"product service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return uuid.Nil, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
+	var products []dto.Product
+	for _, item := range resp.GetProducts() {
+		productID, _ := uuid.Parse(item.GetId())
+		product := dto.Product{
+			ID:          productID,
+			Title:       item.GetTitle(),
+			Description: item.GetDescription(),
+			Price:       item.GetPrice(),
+			Category:    item.GetCategory(),
+			CreatedAt:   item.CreatedAt.AsTime(),
+			UpdatedAt:   item.UpdatedAt.AsTime(),
 		}
+
+		products = append(products, product)
 	}
 
-	return body.Data, nil
+	return products, nil
 }
 
-func (c *ProductClient) GetAllProducts(ctx context.Context, limit, offset int) ([]dto.Product, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/product?limit=%d&offset=%d", c.productSvcURL, limit, offset), nil)
+func (c *GRPCProductClient) GetProductByID(ctx context.Context, id uuid.UUID) (dto.Product, error) {
+	resp, err := c.client.GetProductByID(ctx, &pb.IDMessage{Id: id.String()})
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return []dto.Product{}, utils.ErrSomethingWentWrong
+		return dto.Product{}, err
 	}
 
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return []dto.Product{}, utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[[]dto.Product]
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return []dto.Product{}, utils.ErrSomethingWentWrong
+	productID, _ := uuid.Parse(resp.GetId())
+	product := dto.Product{
+		ID:          productID,
+		Title:       resp.GetTitle(),
+		Description: resp.GetDescription(),
+		Price:       resp.GetPrice(),
+		Category:    resp.GetCategory(),
+		CreatedAt:   resp.GetCreatedAt().AsTime(),
+		UpdatedAt:   resp.GetUpdatedAt().AsTime(),
 	}
 
-	if !body.Success {
-		c.log.Error(
-			"product service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return []dto.Product{}, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
-}
-
-func (c *ProductClient) GetProductByID(ctx context.Context, id uuid.UUID) (dto.Product, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/product/%s", c.productSvcURL, id.String()), nil)
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return dto.Product{}, utils.ErrSomethingWentWrong
-	}
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return dto.Product{}, utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[dto.Product]
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return dto.Product{}, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"product service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return dto.Product{}, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
-	}
-	return body.Data, nil
-}
-
-func (c *ProductClient) DeleteProduct(ctx context.Context, id uuid.UUID) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("%s/api/v1/product/%s", c.productSvcURL, id.String()), nil)
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[any]
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"product service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
-	}
-	return nil
+	return product, nil
 }

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -14,16 +13,14 @@ import (
 )
 
 type ProductController struct {
-	log             *zap.Logger
-	productClient   *client.ProductClient
-	inventoryClient *client.InventoryClient
+	log           *zap.Logger
+	productClient client.ProductClient
 }
 
-func NewProductController(log *zap.Logger, productClient *client.ProductClient, inventoryClient *client.InventoryClient) *ProductController {
+func NewProductController(log *zap.Logger, productClient client.ProductClient, inventoryClient client.InventoryClient) *ProductController {
 	return &ProductController{
 		log,
 		productClient,
-		inventoryClient,
 	}
 }
 
@@ -53,34 +50,7 @@ func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request
 
 	productID, err := c.productClient.CreateProduct(r.Context(), &req)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to create product", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		c.log.Error("failed to create product", zap.Error(err))
-		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
-		return
-	}
-
-	inventoryPayload := &dto.CreateInventoryRequest{
-		ProductID: productID,
-		Inventory: *req.Inventory,
-	}
-
-	_, err = c.inventoryClient.CreateInventory(r.Context(), inventoryPayload)
-	if err != nil {
-		if err := c.productClient.DeleteProduct(r.Context(), productID); err != nil {
-			c.log.Error("failed to delete product", zap.Error(err))
-		}
-
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to create inventory", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
-		c.log.Error("failed to create inventory", zap.Error(err))
-
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
@@ -131,11 +101,6 @@ func (c *ProductController) GetAllProducts(w http.ResponseWriter, r *http.Reques
 
 	products, err := c.productClient.GetAllProducts(r.Context(), limit, offset)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to get all products", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		c.log.Error("failed to get all products", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
@@ -162,10 +127,6 @@ func (c *ProductController) GetProductByID(w http.ResponseWriter, r *http.Reques
 
 	resp, err := c.productClient.GetProductByID(r.Context(), id)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}

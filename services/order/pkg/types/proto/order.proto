@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "github.com/zyncc/ecommerce-microservice/services/order/pkg/types/proto";
+
+import "google/protobuf/timestamp.proto";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (IDMessage);
+  rpc FindOrderByID(IDMessage) returns (Order);
+}
+
+message IDMessage {
+    string id = 1;
+}
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  double subtotal = 3;
+  double order_total = 4;
+  string order_status = 5;
+  string first_name = 6;
+  optional string last_name = 7;
+  string email = 8;
+  string phone = 9;
+  string address_1 = 10;
+  optional string address_2 = 11;
+  string city = 12;
+  string state = 13;
+  string zip = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+
+  repeated OrderItems order_items = 17;
+}
+
+message OrderItems {
+  string id = 1;
+  string order_id = 2;
+  string product_id = 3;
+  int32 quantity = 4;
+  string size = 5;
+  double price = 6;
+
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateOrderRequest {
+  repeated OrderItem items = 1;
+  string user_id = 2;
+  string address_id = 3;
+}
+
+message OrderItem {
+  string product_id = 1;
+  int32 quantity = 2;
+  string size = 3;
+  double price = 4;
+}

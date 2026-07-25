@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types/proto";
+
+import "google/protobuf/timestamp.proto";
+
+service InventoryService {
+  rpc GetInventoryByProductID(IDMessage) returns (GetInventoryResponse);
+}
+
+message IDMessage {
+    string id = 1;
+}
+
+message GetInventoryResponse {
+    string id = 1;
+    string product_id = 2;
+    int32 small = 3;
+    int32 medium = 4;
+    int32 large = 5;
+    int32 extra_large = 6;
+    google.protobuf.Timestamp created_at = 7;
+    google.protobuf.Timestamp updated_at = 8;
+}

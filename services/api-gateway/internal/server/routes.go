@@ -6,6 +6,7 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 	_ "github.com/zyncc/ecommerce-microservice/services/api-gateway/docs"
+	"go.uber.org/zap"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/internal/controller"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
@@ -38,23 +39,35 @@ func (s *Server) RegisterRoutes() http.Handler {
 	}
 
 	// clients
-	authClient := client.NewAuthClient(s.log, s.env.AuthServiceURL, httpClient)
-	productClient := client.NewProductClient(s.log, s.env.ProductServiceURL, httpClient)
-	inventoryClient := client.NewInventoryClient(s.log, s.env.InventoryServiceURL, httpClient)
+	grpcAuthClient, err := client.NewGRPCAuthClient(s.log, s.env.AuthServiceURL)
+	if err != nil {
+		s.log.Error("failed to initialize grpc auth client", zap.Error(err))
+	}
+
+	grpcInventoryClient, err := client.NewGRPCInventoryClient(s.log, s.env.InventoryServiceURL)
+	if err != nil {
+		s.log.Error("failed to initialize grpc inventory client", zap.Error(err))
+	}
+
+	productClient, err := client.NewGRPCProductClient(s.log, s.env.ProductServiceURL)
+	if err != nil {
+		s.log.Error("failed to initialize grpc product client", zap.Error(err))
+	}
+
 	orderClient := client.NewOrderClient(s.log, s.env.OrderServiceURL, httpClient)
 	paymentClient := client.NewPaymentClient(s.log, s.env.PaymentServiceURL, httpClient)
 	shipmentClient := client.NewShipmentClient(s.log, s.env.ShipmentServiceURL, httpClient)
 
 	// controller
-	authController := controller.NewAuthController(s.log, authClient)
-	productController := controller.NewProductController(s.log, productClient, inventoryClient)
+	authController := controller.NewAuthController(s.log, grpcAuthClient)
+	productController := controller.NewProductController(s.log, productClient, grpcInventoryClient)
 	orderController := controller.NewOrderController(s.log, orderClient)
-	inventoryController := controller.NewInventoryController(s.log, inventoryClient)
+	inventoryController := controller.NewInventoryController(s.log, grpcInventoryClient)
 	paymentController := controller.NewPaymentController(s.log, paymentClient)
 	shipmentController := controller.NewShipmentController(s.log, shipmentClient)
 
 	// middleware
-	authMiddleware := middleware.NewAuthMiddleware(s.log, authClient)
+	authMiddleware := middleware.NewAuthMiddleware(s.log, grpcAuthClient)
 
 	r.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		utils.SuccessResponse[any](w, http.StatusOK, "api gateway healthy", nil)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -62,10 +63,8 @@ func (c *PaymentClient) PaymentWebhook(ctx context.Context, req dto.PaymentWebho
 			zap.Int("status", body.Code),
 			zap.String("message", body.Message),
 		)
-		return &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
+		// TODO
+		return errors.New("Payment webhook failed")
 	}
 
 	return nil
