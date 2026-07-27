@@ -19,6 +19,8 @@ import (
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/service"
 	"github.com/zyncc/ecommerce-microservice/services/order/pkg/types"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -79,6 +81,11 @@ func main() {
 	}
 
 	grpcServer := grpcserver.NewServer(log, orderController)
+
+	// grpc health endpoint
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

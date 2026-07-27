@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrations
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/zyncc/migrations:latest
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              migrate \
+                -path /migrations \
+                -database postgresql://postgres:postgres@postgres-postgresql.db:5432/ecommerce_microservice?sslmode=disable \
+                up

@@ -160,7 +160,7 @@ auth:
   password: ""
   ## @param auth.database Name for a custom database to create
   ##
-  database: ""
+  database: "ecommerce_microservice"
   ## @param auth.replicationUsername Name of the replication user
   ##
   replicationUsername: repl_user
