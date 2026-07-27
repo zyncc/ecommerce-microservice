@@ -7,20 +7,18 @@ echo "Installing NGINX Ingress Controller..."
 helm upgrade --install ingress-nginx \
     ingress-nginx/ingress-nginx \
     -n ingress-nginx \
-    --create-namespace
-
-echo "Waiting for NGINX Ingress Controller..."
-
-kubectl rollout status deployment/ingress-nginx-controller \
-    -n ingress-nginx \
-    --timeout=300s
+    --create-namespace \
+    --wait \
+    --timeout=10m
 
 echo "Installing Confluent for Kubernetes Operator..."
 
 helm upgrade --install kafka \
     confluentinc/confluent-for-kubernetes \
     -n confluent \
-    --create-namespace
+    --create-namespace \
+    --wait \
+    --timeout=10m
 
 echo "Waiting for Confluent Operator..."
 
@@ -32,32 +30,21 @@ echo "Deploying Kafka Cluster..."
 
 kubectl apply -R -f helm/kafka
 
-echo "Waiting for KRaft Controller..."
-
-kubectl rollout status \
-    statefulset/kraftcontroller \
-    -n confluent \
-    --timeout=300s
-
-echo "Waiting for Kafka broker..."
-
-kubectl rollout status \
-    statefulset/kafka \
-    -n confluent \
-    --timeout=300s
-
 echo "Installing PostgreSQL..."
 
 helm upgrade --install postgres \
     oci://registry-1.docker.io/bitnamicharts/postgresql \
     -n db \
     --create-namespace \
-    -f helm/postgres/postgres-values.yaml
+    -f helm/postgres/postgres-values.yaml \
+    --wait \
+    --timeout=10m
 
 echo "Waiting for PostgreSQL to become ready..."
 
 kubectl wait \
-    --for=condition=ready pod \
+    --for=condition=Ready \
+    pod \
     -l app.kubernetes.io/name=postgresql \
     -n db \
     --timeout=300s
@@ -67,14 +54,60 @@ echo "Running database migrations..."
 helm upgrade --install migrations \
     ./helm/migrations \
     -n ecommerce \
-    --create-namespace
+    --create-namespace \
+    --wait \
+    --timeout=10m
+
+echo "Waiting for migrations..."
+
+kubectl wait \
+    --for=condition=complete \
+    job/migrations \
+    -n ecommerce \
+    --timeout=300s
+
+echo "Waiting for KRaft Controller..."
+
+kubectl rollout status \
+    statefulset/kraftcontroller \
+    -n confluent \
+    --timeout=300s
+
+echo "Waiting for Kafka StatefulSet to be created..."
+
+until kubectl get statefulset kafka -n confluent >/dev/null 2>&1; do
+    sleep 2
+done
+
+echo "Waiting for Kafka broker..."
+
+kubectl rollout status \
+    statefulset/kafka \
+    -n confluent \
+    --timeout=300s
+
+echo "Waiting for Kafka topics..."
+
+until kubectl exec -n confluent kafka-0 -- \
+    kafka-topics --bootstrap-server localhost:9092 --list | \
+    grep -q "payment.succeeded"; do
+    sleep 2
+done
+
+until kubectl exec -n confluent kafka-0 -- \
+    kafka-topics --bootstrap-server localhost:9092 --list | \
+    grep -q "shipment.updated"; do
+    sleep 2
+done
 
 echo "Deploying microservices..."
 
 helm upgrade --install microservices \
     ./helm/microservices \
     -n ecommerce \
-    --create-namespace
+    --create-namespace \
+    --wait \
+    --timeout=10m
 
 echo "Waiting for microservices..."
 
@@ -91,30 +124,44 @@ echo "Deploying Monitoring..."
 helm upgrade --install prometheus-stack \
     oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack \
     -n monitoring \
-    --create-namespace
+    --create-namespace \
+    --wait \
+    --timeout=10m
 
 kubectl rollout status deployment/prometheus-stack-operator \
     -n monitoring \
     --timeout=300s
 
-helm upgrade --install alloy \
-    grafana/alloy \
-    -n monitoring \
-    --create-namespace \
-    -f ./monitoring/alloy.yaml
-
-kubectl rollout status deployment/alloy \
-    -n monitoring \
-    --timeout=300s
+echo "Deploying Loki..."
 
 helm upgrade --install loki \
     grafana/loki \
     -n monitoring \
     --create-namespace \
-    -f ./monitoring/loki.yaml
+    -f ./monitoring/loki.yaml \
+    --wait \
+    --timeout=10m
 
 kubectl rollout status statefulset/loki \
     -n monitoring \
     --timeout=300s
+
+echo "Deploying Alloy..."
+
+helm upgrade --install alloy \
+    grafana/alloy \
+    -n monitoring \
+    --create-namespace \
+    -f ./monitoring/alloy.yaml \
+    --wait \
+    --timeout=10m
+
+kubectl rollout status deployment/alloy \
+    -n monitoring \
+    --timeout=300s
+
+echo "Creating monitoring ingress..."
+
+kubectl apply -f monitoring/ingress.yaml
 
 echo "🚀 Deployment complete! 🚀"

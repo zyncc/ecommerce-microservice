@@ -18,8 +18,8 @@ INSERT INTO product (
     id,
     title,
     description,
-    category
-    price,
+    category,
+    price
 ) VALUES (
     'e72eabd7-b953-40f7-9d64-a221a6f00377',
     'Nike Jordan Air 1',
