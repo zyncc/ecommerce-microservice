@@ -1,0 +1,2 @@
+DELETE FROM users WHERE id = 'f02de4cd-411e-4680-b99e-5d8485a78165';
+DELETE FROM product WHERE id = 'e72eabd7-b953-40f7-9d64-a221a6f00377';

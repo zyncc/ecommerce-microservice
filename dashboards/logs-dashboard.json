@@ -4,19 +4,19 @@
   "metadata": {
     "name": "adtjp7t",
     "namespace": "default",
-    "uid": "49dc4b95-2879-4937-bc65-39a4aeee29ff",
-    "resourceVersion": "1784887165904013",
-    "generation": 19,
-    "creationTimestamp": "2026-07-24T09:06:15Z",
+    "uid": "90d17382-9a38-4fe9-9768-0e69f293c605",
+    "resourceVersion": "1785151466793988",
+    "generation": 12,
+    "creationTimestamp": "2026-07-27T11:00:11Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "4420881876234240"
+      "grafana.app/deprecatedInternalID": "1033117267521536"
     },
     "annotations": {
-      "grafana.app/createdBy": "user:cft24s127qozka",
+      "grafana.app/createdBy": "user:bftd6vwq71reoc",
       "grafana.app/folder": "",
       "grafana.app/saved-from-ui": "Grafana v13.1.1 (e784b7782a)",
-      "grafana.app/updatedBy": "user:cft24s127qozka",
-      "grafana.app/updatedTimestamp": "2026-07-24T09:59:25Z"
+      "grafana.app/updatedBy": "user:bftd6vwq71reoc",
+      "grafana.app/updatedTimestamp": "2026-07-27T11:24:26Z"
     }
   },
   "spec": {
@@ -63,7 +63,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -129,7 +129,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -193,7 +193,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -257,7 +257,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -321,7 +321,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -385,7 +385,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -449,7 +449,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",
@@ -513,7 +513,7 @@
                       "group": "loki",
                       "version": "v0",
                       "datasource": {
-                        "name": "eft27jf19t5vkd"
+                        "name": "eftd85b21wlxca"
                       },
                       "spec": {
                         "direction": "backward",

@@ -52,6 +52,7 @@ func (c *OrderGRPCClient) CreateOrder(ctx context.Context, req *dto.CreateOrderR
 		AddressId: req.AddressID.String(),
 	})
 	if err != nil {
+		c.log.Error("order service returned error", zap.Error(err))
 		return uuid.Nil, err
 	}
 
