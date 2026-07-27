@@ -12,10 +12,10 @@ import (
 
 type PaymentController struct {
 	log           *zap.Logger
-	paymentClient *client.PaymentClient
+	paymentClient client.PaymentClient
 }
 
-func NewPaymentController(log *zap.Logger, paymentClient *client.PaymentClient) *PaymentController {
+func NewPaymentController(log *zap.Logger, paymentClient client.PaymentClient) *PaymentController {
 	return &PaymentController{
 		log,
 		paymentClient,

@@ -13,10 +13,10 @@ import (
 
 type ShipmentController struct {
 	log            *zap.Logger
-	shipmentClient *client.ShipmentClient
+	shipmentClient client.ShipmentClient
 }
 
-func NewShipmentController(log *zap.Logger, shipmentClient *client.ShipmentClient) *ShipmentController {
+func NewShipmentController(log *zap.Logger, shipmentClient client.ShipmentClient) *ShipmentController {
 	return &ShipmentController{
 		log,
 		shipmentClient,

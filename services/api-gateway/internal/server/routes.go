@@ -2,7 +2,6 @@ package server
 
 import (
 	"net/http"
-	"time"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 	_ "github.com/zyncc/ecommerce-microservice/services/api-gateway/docs"
@@ -34,10 +33,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 		MaxAge:           300,
 	}))
 
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
 	// clients
 	grpcAuthClient, err := client.NewGRPCAuthClient(s.log, s.env.AuthServiceURL)
 	if err != nil {
@@ -59,8 +54,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 		s.log.Error("failed to initialize grpc product client", zap.Error(err))
 	}
 
-	paymentClient := client.NewPaymentClient(s.log, s.env.PaymentServiceURL, httpClient)
-	shipmentClient := client.NewShipmentClient(s.log, s.env.ShipmentServiceURL, httpClient)
+	paymentClient, err := client.NewPaymentGRPCClient(s.log, s.env.PaymentServiceURL)
+	if err != nil {
+		s.log.Error("failed to initialize grpc payment client", zap.Error(err))
+	}
+
+	shipmentClient, err := client.NewShipmentGRPCClient(s.log, s.env.ShipmentServiceURL)
+	if err != nil {
+		s.log.Error("failed to initialize grpc payment client", zap.Error(err))
+	}
 
 	// controller
 	authController := controller.NewAuthController(s.log, grpcAuthClient)

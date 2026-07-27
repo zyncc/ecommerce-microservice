@@ -3,16 +3,18 @@ package main
 import (
 	"context"
 	"errors"
-	"net/http"
+	"fmt"
+	"net"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/zyncc/ecommerce-microservice/services/shipping/internal/config"
 	"github.com/zyncc/ecommerce-microservice/services/shipping/internal/consumer"
+	"github.com/zyncc/ecommerce-microservice/services/shipping/internal/controller"
+	grpcserver "github.com/zyncc/ecommerce-microservice/services/shipping/internal/grpc"
 	"github.com/zyncc/ecommerce-microservice/services/shipping/internal/repository"
-	"github.com/zyncc/ecommerce-microservice/services/shipping/internal/server"
+	"github.com/zyncc/ecommerce-microservice/services/shipping/internal/service"
 	"github.com/zyncc/ecommerce-microservice/services/shipping/pkg/types"
 	"go.uber.org/zap"
 )
@@ -37,9 +39,14 @@ func main() {
 	defer kafkaProducer.Close()
 	log.Info("Kafka Producer Running")
 
-	apiServer := server.NewServer(log, env, pool, kafkaProducer)
-
+	// repositories
 	shipmentRepo := repository.NewShippingRepository(log, pool)
+
+	// services
+	shipmentService := service.NewShipmentService(log, shipmentRepo, kafkaProducer)
+
+	// controllers
+	shipmentController := controller.NewShipmentController(log, shipmentService)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -61,29 +68,19 @@ func main() {
 	})
 
 	wg.Add(1)
-	go gracefulShutdown(ctx, apiServer, &wg, log)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", env.Port))
+	if err != nil {
+		log.Fatal("failed to start grpc server", zap.Error(err))
+	}
+
+	grpcServer := grpcserver.NewServer(log, shipmentController)
 
 	log.Info("Server running", zap.Int("port", env.Port))
-	if err := apiServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatal("Failed to start server", zap.Error(err))
 	}
 
 	wg.Wait()
 	log.Info("shutdown complete")
-}
-
-func gracefulShutdown(ctx context.Context, apiServer *http.Server, wg *sync.WaitGroup, log *zap.Logger) {
-	defer wg.Done()
-
-	<-ctx.Done()
-	log.Info("shutting down gracefully, press Ctrl+C again to force")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := apiServer.Shutdown(shutdownCtx); err != nil {
-		log.Error("Server forced to shutdown with error", zap.Error(err))
-	}
-
-	log.Info("Server exiting")
 }
