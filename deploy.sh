@@ -17,7 +17,6 @@ helm upgrade --install kafka \
     confluentinc/confluent-for-kubernetes \
     -n confluent \
     --create-namespace \
-    --wait \
     --timeout=10m
 
 echo "Waiting for Confluent Operator..."
@@ -55,16 +54,7 @@ helm upgrade --install migrations \
     ./helm/migrations \
     -n ecommerce \
     --create-namespace \
-    --wait \
     --timeout=10m
-
-echo "Waiting for migrations..."
-
-kubectl wait \
-    --for=condition=complete \
-    job/migrations \
-    -n ecommerce \
-    --timeout=300s
 
 echo "Waiting for KRaft Controller..."
 
@@ -106,31 +96,16 @@ helm upgrade --install microservices \
     ./helm/microservices \
     -n ecommerce \
     --create-namespace \
-    --wait \
     --timeout=10m
-
-echo "Waiting for microservices..."
-
-kubectl rollout status deployment/api-gateway -n ecommerce --timeout=300s
-kubectl rollout status deployment/auth-service -n ecommerce --timeout=300s
-kubectl rollout status deployment/product-service -n ecommerce --timeout=300s
-kubectl rollout status deployment/order-service -n ecommerce --timeout=300s
-kubectl rollout status deployment/payment-service -n ecommerce --timeout=300s
-kubectl rollout status deployment/inventory-service -n ecommerce --timeout=300s
-kubectl rollout status deployment/shipping-service -n ecommerce --timeout=300s
 
 echo "Deploying Monitoring..."
 
 helm upgrade --install prometheus-stack \
     oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack \
     -n monitoring \
+    -f monitoring/prometheus.yaml \
     --create-namespace \
-    --wait \
     --timeout=10m
-
-kubectl rollout status deployment/prometheus-stack-operator \
-    -n monitoring \
-    --timeout=300s
 
 echo "Deploying Loki..."
 
@@ -139,12 +114,7 @@ helm upgrade --install loki \
     -n monitoring \
     --create-namespace \
     -f ./monitoring/loki.yaml \
-    --wait \
     --timeout=10m
-
-kubectl rollout status statefulset/loki \
-    -n monitoring \
-    --timeout=300s
 
 echo "Deploying Alloy..."
 
@@ -153,12 +123,7 @@ helm upgrade --install alloy \
     -n monitoring \
     --create-namespace \
     -f ./monitoring/alloy.yaml \
-    --wait \
     --timeout=10m
-
-kubectl rollout status deployment/alloy \
-    -n monitoring \
-    --timeout=300s
 
 echo "Creating monitoring ingress..."
 

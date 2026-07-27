@@ -1,3 +1,5 @@
+BEGIN;
+
 INSERT INTO users (
     id,
     name,
@@ -9,8 +11,34 @@ INSERT INTO users (
     'admin',
     'admin@gmail.com',
     'admin',
-    '$argon2id$v=19$m=65536,t=1,p=24$8UAqaD+SqfSR5c63ZKLS1g$eOZKTsobXPv/FYzHfGA0ohKInt25kqvwdTg+DGFvlJo'
+    '$argon2id$v=19$m=65536,t=1,p=24$jIMk6lin0oTl32mjiOJeNQ$tkCAIMqcT37RmFOyhy8td2ITm8grv5BNOfQVtG7C5zk'
 );
+
+INSERT INTO address (
+    id,
+    user_id,
+    first_name,
+    last_name,
+    email,
+    phone,
+    address1,
+    city,
+    state,
+    zip
+) VALUES (
+    'a9e5cdb9-5e37-484b-909f-66f85847045e',
+    'f02de4cd-411e-4680-b99e-5d8485a78165',
+    'admin',
+    'admin',
+    'admin@gmail.com',
+    '9256157821',
+    'church street',
+    'bangalore',
+    'karnataka',
+    '560078'
+);
+
+COMMIT;
 
 BEGIN;
 

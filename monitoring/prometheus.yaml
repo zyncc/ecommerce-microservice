@@ -1376,6 +1376,11 @@ grafana:
   enabled: true
   namespaceOverride: ""
 
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/grafana/"
+      serve_from_sub_path: true
+
   ## ForceDeployDatasources Create datasource configmap even if grafana deployment has been disabled
   ##
   forceDeployDatasources: false
@@ -1469,8 +1474,8 @@ grafana:
   admin:
     ## Name of the secret. Can be templated.
     existingSecret: ""
-    userKey: admin
-    passwordKey: admin
+    userKey: admin-user
+    passwordKey: admin-password
 
   rbac:
     ## If true, Grafana PSPs will be created
