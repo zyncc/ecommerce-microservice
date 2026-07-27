@@ -1,43 +1,57 @@
 package controller
 
 import (
-	"encoding/json"
-	"net/http"
+	"context"
 
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
+	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/payment/internal/service"
 	"github.com/zyncc/ecommerce-microservice/services/payment/pkg/types/dto"
+	pb "github.com/zyncc/ecommerce-microservice/services/payment/pkg/types/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type PaymentController struct {
+	pb.UnimplementedPaymentServiceServer
 	log *zap.Logger
 	svc *service.PaymentService
 }
 
 func NewPaymentController(log *zap.Logger, svc *service.PaymentService) *PaymentController {
-	return &PaymentController{log, svc}
+	return &PaymentController{
+		log: log,
+		svc: svc,
+	}
 }
 
-func (c *PaymentController) PaymentWebhook(w http.ResponseWriter, r *http.Request) {
-	var req dto.PaymentWebhookRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		c.log.Debug("invalid request body", zap.Error(err))
-		utils.ErrorResponse(w, http.StatusUnprocessableEntity, "invalid request body")
-		return
+func (c *PaymentController) PaymentWebhook(ctx context.Context, in *pb.WebhookRequest) (*emptypb.Empty, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Internal, "razorpay header is missing")
 	}
 
 	// validate payment webhook signature to ensure it was sent from the payment provider
-	razorpaySignature := r.Header.Get("X-Razorpay-Signature")
+	razorpaySignature := meta.Get("X-Razorpay-Signature")[0]
 	if razorpaySignature == "" {
-		utils.ForbiddenErrorResponse(w)
-		return
+		return nil, status.Error(codes.PermissionDenied, "you cannot access this resource")
 	}
 
-	if err := c.svc.ProcessPaymentWebhook(r.Context(), req); err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, "something went wrong")
-		return
+	idempotencyKey, _ := uuid.Parse(in.GetIdempotencyKey())
+	orderID, _ := uuid.Parse(in.GetOrderId())
+
+	if err := c.svc.ProcessPaymentWebhook(ctx, dto.PaymentWebhookRequest{
+		IdempotencyKey: idempotencyKey,
+		OrderID:        orderID,
+		Amount:         in.GetAmount(),
+		PaymentMethod:  in.GetPaymentMethod(),
+		Currency:       in.GetCurrency(),
+		Status:         in.GetStatus(),
+	}); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	utils.SuccessResponse[any](w, http.StatusOK, "Successfully Processed Webhook", nil)
+	return &emptypb.Empty{}, nil
 }

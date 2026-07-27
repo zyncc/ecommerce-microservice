@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/repository/model"
 	"github.com/zyncc/ecommerce-microservice/services/product/pkg/types"
 	"go.uber.org/zap"
@@ -21,17 +22,70 @@ func NewProductRepository(log *zap.Logger, db *pgxpool.Pool) *ProductRepository 
 	return &ProductRepository{log, db}
 }
 
-func (r *ProductRepository) CreateProduct(ctx context.Context, params *model.CreateProductParams) (uuid.UUID, error) {
-	id := uuid.New()
-	_, err := r.db.Exec(ctx,
-		`INSERT INTO product (id, title, description, price, category)
-		VALUES ($1, $2, $3, $4, $5)`,
-		id, params.Title, params.Description, params.Price, params.Category)
+func (r *ProductRepository) CreateProduct(ctx context.Context, params *dto.CreateProductRequest) (uuid.UUID, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	productID := uuid.New()
+	_, err = tx.Exec(ctx,
+		`INSERT INTO product 
+		(
+			id, 
+			title, 
+			description, 
+			price, 
+			category
+		)
+		VALUES (
+		$1, $2, $3, $4, $5
+		)`,
+		productID, params.Title, params.Description, params.Price, params.Category)
 	if err != nil {
 		r.log.Error("failed to create product", zap.Error(err))
-		return uuid.Nil, types.ErrDatabase
+		return uuid.Nil, err
 	}
-	return id, nil
+
+	inventoryID := uuid.New()
+
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO inventory (
+			id, 
+			product_id, 
+			small, 
+			medium, 
+			large, 
+			extra_large
+		)
+		VALUES (
+			$1, 
+			$2, 
+			$3, 
+			$4, 
+			$5, 
+			$6
+		)`,
+		inventoryID,
+		productID,
+		params.Inventory.Small,
+		params.Inventory.Medium,
+		params.Inventory.Large,
+		params.Inventory.ExtraLarge,
+	)
+	if err != nil {
+		r.log.Error("failed to create inventory", zap.Error(err))
+		return uuid.Nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		r.log.Error("failed to commit transaction", zap.Error(err))
+		return uuid.Nil, err
+	}
+
+	return productID, nil
 }
 
 func (r *ProductRepository) FetchAllProducts(ctx context.Context, limit, offset int) ([]*model.Product, error) {
@@ -65,7 +119,8 @@ func (r *ProductRepository) FetchAllProducts(ctx context.Context, limit, offset 
 
 func (r *ProductRepository) GetProductByID(ctx context.Context, id uuid.UUID) (model.Product, error) {
 	var product model.Product
-	if err := r.db.QueryRow(ctx,
+	if err := r.db.QueryRow(
+		ctx,
 		`SELECT id, title, description, price, category, created_at, updated_at
 		FROM product
 		WHERE id = $1`,
@@ -79,22 +134,4 @@ func (r *ProductRepository) GetProductByID(ctx context.Context, id uuid.UUID) (m
 	}
 
 	return product, nil
-}
-
-func (r *ProductRepository) DeleteProduct(ctx context.Context, id uuid.UUID) error {
-	tag, err := r.db.Exec(ctx,
-		`DELETE FROM product WHERE id = $1`,
-		id,
-	)
-	if err != nil {
-		r.log.Error("failed to delete product", zap.Error(err))
-		return types.ErrDatabase
-	}
-
-	if tag.RowsAffected() == 0 {
-		r.log.Error("failed to delete product", zap.Error(err))
-		return types.ErrDatabase
-	}
-
-	return nil
 }

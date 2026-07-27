@@ -21,42 +21,6 @@ func NewInventoryRepository(log *zap.Logger, db *pgxpool.Pool) *InventoryReposit
 	return &InventoryRepository{log, db}
 }
 
-func (r *InventoryRepository) CreateInventory(ctx context.Context, params *model.CreateInventoryParams) (uuid.UUID, error) {
-	id := uuid.New()
-
-	_, err := r.db.Exec(
-		ctx, `
-		INSERT INTO inventory (
-			id, 
-			product_id, 
-			small, 
-			medium, 
-			large, 
-			extra_large
-		)
-		VALUES (
-			$1, 
-			$2, 
-			$3, 
-			$4, 
-			$5, 
-			$6
-		)`,
-		id,
-		params.ProductID,
-		params.Small,
-		params.Medium,
-		params.Large,
-		params.ExtraLarge,
-	)
-	if err != nil {
-		r.log.Error("failed to create inventory", zap.Error(err))
-		return uuid.Nil, types.ErrDatabase
-	}
-
-	return id, nil
-}
-
 func (r *InventoryRepository) FindInventoryByProductID(ctx context.Context, productID uuid.UUID) (model.Inventory, error) {
 	var inventory model.Inventory
 

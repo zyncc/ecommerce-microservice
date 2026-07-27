@@ -17,11 +17,3 @@ type Inventory struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
-
-type CreateInventoryParams struct {
-	ProductID  uuid.UUID
-	Small      int
-	Medium     int
-	Large      int
-	ExtraLarge int
-}

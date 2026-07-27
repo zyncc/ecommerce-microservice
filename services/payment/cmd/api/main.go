@@ -1,14 +1,14 @@
 package main
 
 import (
-	"context"
-	"net/http"
-	"os/signal"
-	"syscall"
-	"time"
+	"fmt"
+	"net"
 
 	"github.com/zyncc/ecommerce-microservice/services/payment/internal/config"
-	"github.com/zyncc/ecommerce-microservice/services/payment/internal/server"
+	"github.com/zyncc/ecommerce-microservice/services/payment/internal/controller"
+	grpcserver "github.com/zyncc/ecommerce-microservice/services/payment/internal/grpc"
+	"github.com/zyncc/ecommerce-microservice/services/payment/internal/repository"
+	"github.com/zyncc/ecommerce-microservice/services/payment/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +24,7 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
+	defer pool.Close()
 
 	// kafka
 	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
@@ -33,34 +34,24 @@ func main() {
 	log.Info("Kafka Producer Running")
 	defer kafkaProducer.Close()
 
-	server := server.NewServer(log, env, pool, kafkaProducer)
+	// repositories
+	paymentRepo := repository.NewPaymentRepository(log, pool)
 
-	done := make(chan bool, 1)
+	// services
+	paymentService := service.NewPaymentService(log, paymentRepo, kafkaProducer)
 
-	go gracefulShutdown(server, done, log)
+	// controllers
+	paymentController := controller.NewPaymentController(log, paymentService)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", env.Port))
+	if err != nil {
+		log.Fatal("failed to start grpc server", zap.Error(err))
+	}
+
+	grpcServer := grpcserver.NewServer(log, paymentController)
 
 	log.Info("Server running", zap.Int("port", env.Port))
-	if err := server.ListenAndServe(); err != nil {
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatal("Failed to start server", zap.Error(err))
 	}
-}
-
-func gracefulShutdown(apiServer *http.Server, done chan bool, log *zap.Logger) {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	<-ctx.Done()
-
-	log.Info("shutting down gracefully, press Ctrl+C again to force")
-	stop()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := apiServer.Shutdown(ctx); err != nil {
-		log.Info("Server forced to shutdown", zap.Error(err))
-	}
-
-	log.Info("Server exiting")
-
-	done <- true
 }

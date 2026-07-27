@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package shipping;
+
+option go_package = "github.com/zyncc/ecommerce-microservice/services/shipping/pkg/types/proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service ShippingService {
+  rpc ShipmentWebhook(WebhookRequest) returns (google.protobuf.Empty);
+  rpc GetShipmentByTrackingID(IDMessage) returns (Shipment);
+}
+
+message IDMessage {
+    string id = 1;
+}
+
+message WebhookRequest {
+  string idempotency_key = 1;
+  string tracking_number = 2;
+  string status = 3;
+}
+
+message Shipment {
+  string id = 1;
+  string order_id = 2;
+  optional string idempotency_key = 3;
+  string status = 4;
+  string carrier = 5;
+  double shipping_cost = 6;
+  string tracking_number = 7;
+  optional google.protobuf.Timestamp shipped_at = 8;
+  optional google.protobuf.Timestamp delivered_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}

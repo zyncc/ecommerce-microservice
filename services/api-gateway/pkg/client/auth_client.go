@@ -1,328 +1,224 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	pb "github.com/zyncc/ecommerce-microservice/services/auth/pkg/types/proto"
 
 	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/types"
 	"go.uber.org/zap"
 )
 
-type AuthClient struct {
-	log        *zap.Logger
-	authSvcURL string
-	httpClient *http.Client
+type AuthClient interface {
+	SignUp(ctx context.Context, req *dto.SignUpRequest) (string, error)
+	SignIn(ctx context.Context, req *dto.SignInRequest) (dto.SignInResponse, error)
+	GetSession(ctx context.Context, r *http.Request) (types.Session, error)
+	RefreshToken(ctx context.Context, r *http.Request) (string, error)
+	CreateAddress(ctx context.Context, req dto.CreateAddressRequest) (uuid.UUID, error)
+	GetAddressByID(ctx context.Context, id uuid.UUID) (dto.AddressResponse, error)
+	GetAllAddresses(ctx context.Context, userID uuid.UUID) ([]dto.AddressResponse, error)
 }
 
-func NewAuthClient(log *zap.Logger, authSvcURL string, httpClient *http.Client) *AuthClient {
-	return &AuthClient{
-		log,
-		authSvcURL,
-		httpClient,
-	}
+type GRPCAuthClient struct {
+	client pb.AuthServiceClient
+	log    *zap.Logger
+	conn   *grpc.ClientConn
 }
 
-func (c *AuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (string, error) {
-	reqBody, err := json.Marshal(req)
+func NewGRPCAuthClient(log *zap.Logger, addr string) (*GRPCAuthClient, error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		c.log.Error("failed to marshal json data", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
+		return nil, err
 	}
 
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		fmt.Sprintf("%s/api/v1/signup", c.authSvcURL),
-		bytes.NewReader(reqBody),
-	)
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[string]
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return "", &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
+	return &GRPCAuthClient{
+		log:    log,
+		conn:   conn,
+		client: pb.NewAuthServiceClient(conn),
+	}, nil
 }
 
-func (c *AuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (dto.SignInResponse, error) {
-	reqBody, err := json.Marshal(req)
+func (c *GRPCAuthClient) SignUp(ctx context.Context, req *dto.SignUpRequest) (string, error) {
+	in := &pb.SignUpRequest{
+		Name:            req.Name,
+		Email:           req.Email,
+		Password:        req.Password,
+		ConfirmPassword: req.ConfirmPassword,
+	}
+
+	resp, err := c.client.SignUp(ctx, in)
 	if err != nil {
-		c.log.Error("failed to marshal json data", zap.Error(err))
-		return dto.SignInResponse{}, utils.ErrSomethingWentWrong
+		c.log.Error("auth service returned error", zap.Error(err))
+		return "", err
 	}
 
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		fmt.Sprintf("%s/api/v1/signin", c.authSvcURL),
-		bytes.NewReader(reqBody),
-	)
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return dto.SignInResponse{}, utils.ErrSomethingWentWrong
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return dto.SignInResponse{}, utils.ErrSomethingWentWrong
-	}
-	defer response.Body.Close()
-
-	var body utils.Success[dto.SignInResponse]
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return dto.SignInResponse{}, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return dto.SignInResponse{}, &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
+	return resp.GetId(), nil
 }
 
-func (c *AuthClient) GetSession(ctx context.Context, r *http.Request) (types.Session, error) {
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		fmt.Sprintf("%s/api/v1/session", c.authSvcURL),
-		nil,
-	)
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return types.Session{}, utils.ErrSomethingWentWrong
+func (c *GRPCAuthClient) SignIn(ctx context.Context, req *dto.SignInRequest) (dto.SignInResponse, error) {
+	in := &pb.SignInRequest{
+		Email:    req.Email,
+		Password: req.Password,
 	}
 
-	tokenString, err := utils.ExtractAuthHeader(r)
+	resp, err := c.client.SignIn(ctx, in)
+	if err != nil {
+		c.log.Error("auth service returned error", zap.Error(err))
+		return dto.SignInResponse{}, err
+	}
+
+	dto := dto.SignInResponse{
+		AccessToken:  resp.GetAccessToken(),
+		RefreshToken: resp.GetRefreshToken(),
+	}
+
+	return dto, nil
+}
+
+func (c *GRPCAuthClient) GetSession(ctx context.Context, r *http.Request) (types.Session, error) {
+	token, err := utils.ExtractAuthHeader(r)
 	if err != nil {
 		return types.Session{}, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenString))
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", token)
 
-	response, err := c.httpClient.Do(request)
+	resp, err := c.client.GetSession(ctx, &emptypb.Empty{})
 	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return types.Session{}, utils.ErrSomethingWentWrong
-	}
-	defer response.Body.Close()
-
-	var body utils.Success[types.Session]
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return types.Session{}, utils.ErrSomethingWentWrong
+		return types.Session{}, err
 	}
 
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return types.Session{}, &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
-		}
+	id, _ := uuid.Parse(resp.GetId())
+	dto := types.Session{
+		ID:        id,
+		Name:      resp.GetName(),
+		Email:     resp.GetEmail(),
+		Role:      resp.GetRole(),
+		CreatedAt: resp.GetCreatedAt().AsTime(),
 	}
 
-	return body.Data, nil
+	return dto, nil
 }
 
-func (c *AuthClient) RefreshToken(ctx context.Context, r *http.Request) (string, error) {
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		fmt.Sprintf("%s/api/v1/refresh", c.authSvcURL),
-		nil,
-	)
+func (c *GRPCAuthClient) RefreshToken(ctx context.Context, r *http.Request) (string, error) {
+	refreshTokenCookie, err := r.Cookie("refresh_token")
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
+		return "", errors.New("refresh_token cookie is missing")
 	}
+	refreshToken := refreshTokenCookie.Value
 
-	for _, cookie := range r.Cookies() {
-		request.AddCookie(cookie)
-	}
-
-	response, err := c.httpClient.Do(request)
+	ctx = metadata.AppendToOutgoingContext(ctx, "refresh_token", refreshToken)
+	resp, err := c.client.RefreshToken(ctx, &emptypb.Empty{})
 	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
-	}
-	defer response.Body.Close()
-
-	var body utils.Success[string]
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return "", utils.ErrSomethingWentWrong
+		return "", err
 	}
 
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return "", &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
+	return resp.GetAccessToken(), nil
 }
 
-func (c *AuthClient) CreateAddress(ctx context.Context, req dto.CreateAddressRequest) (uuid.UUID, error) {
-	reqData, err := json.Marshal(req)
+func (c *GRPCAuthClient) CreateAddress(ctx context.Context, req dto.CreateAddressRequest) (uuid.UUID, error) {
+	in := &pb.CreateAddressRequest{
+		UserId:    req.UserID.String(),
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Email:     req.Email,
+		Phone:     req.Phone,
+		Address1:  req.Address1,
+		Address2:  req.Address2,
+		City:      req.City,
+		State:     req.State,
+		Zip:       req.Zip,
+	}
+
+	resp, err := c.client.CreateAddress(ctx, in)
 	if err != nil {
-		c.log.Error("failed to marshall json", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return uuid.Nil, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/address", c.authSvcURL), bytes.NewReader(reqData))
+	addressID, err := uuid.Parse(resp.GetAddressId())
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return uuid.Nil, err
 	}
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-	defer response.Body.Close()
-
-	var body utils.Success[uuid.UUID]
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return uuid.Nil, &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
+	return addressID, nil
 }
 
-func (c *AuthClient) GetAddressByID(ctx context.Context, id uuid.UUID) (dto.AddressResponse, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/address/%s", c.authSvcURL, id.String()), nil)
+func (c *GRPCAuthClient) GetAddressByID(ctx context.Context, id uuid.UUID) (dto.AddressResponse, error) {
+	in := &pb.GetAddressByIDRequest{
+		Id: id.String(),
+	}
+
+	resp, err := c.client.GetAddressByID(ctx, in)
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return dto.AddressResponse{}, utils.ErrSomethingWentWrong
+		return dto.AddressResponse{}, err
 	}
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return dto.AddressResponse{}, utils.ErrSomethingWentWrong
-	}
-	defer response.Body.Close()
+	addressID, _ := uuid.Parse(resp.GetId())
+	userID, _ := uuid.Parse(resp.GetUserId())
 
-	var body utils.Success[dto.AddressResponse]
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return dto.AddressResponse{}, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return dto.AddressResponse{}, &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
-		}
+	dto := dto.AddressResponse{
+		ID:        addressID,
+		UserID:    userID,
+		FirstName: resp.GetFirstName(),
+		LastName:  resp.LastName,
+		Email:     resp.GetEmail(),
+		Phone:     resp.GetPhone(),
+		Address1:  resp.GetAddress1(),
+		Address2:  resp.Address2,
+		City:      resp.GetCity(),
+		State:     resp.GetState(),
+		Zip:       resp.GetZip(),
+		CreatedAt: resp.GetCreatedAt().AsTime(),
+		UpdatedAt: resp.GetUpdatedAt().AsTime(),
 	}
 
-	return body.Data, nil
+	return dto, nil
 }
 
-func (c *AuthClient) GetAllAddresses(ctx context.Context, userID uuid.UUID) ([]dto.AddressResponse, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/address?userID=%s", c.authSvcURL, userID.String()), nil)
+func (c *GRPCAuthClient) GetAllAddresses(ctx context.Context, userID uuid.UUID) ([]dto.AddressResponse, error) {
+	in := &pb.GetAllAddressesRequest{
+		UserId: userID.String(),
+	}
+
+	resp, err := c.client.GetAllAddresses(ctx, in)
 	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return []dto.AddressResponse{}, utils.ErrSomethingWentWrong
+		return nil, err
 	}
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return []dto.AddressResponse{}, utils.ErrSomethingWentWrong
-	}
-	defer response.Body.Close()
+	var addresses []dto.AddressResponse
 
-	var body utils.Success[[]dto.AddressResponse]
-	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return []dto.AddressResponse{}, utils.ErrSomethingWentWrong
-	}
+	for _, address := range resp.GetAddresses() {
+		id, _ := uuid.Parse(address.GetId())
+		userID, _ := uuid.Parse(address.GetUserId())
 
-	if !body.Success {
-		c.log.Error(
-			"auth service returned server error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return []dto.AddressResponse{}, &utils.HTTPError{
-			Status:  body.Code,
-			Message: body.Message,
+		dto := dto.AddressResponse{
+			ID:        id,
+			UserID:    userID,
+			FirstName: address.GetFirstName(),
+			LastName:  address.LastName,
+			Email:     address.GetEmail(),
+			Phone:     address.GetPhone(),
+			Address1:  address.GetAddress1(),
+			Address2:  address.Address2,
+			City:      address.GetCity(),
+			State:     address.GetState(),
+			Zip:       address.GetZip(),
+			CreatedAt: address.GetCreatedAt().AsTime(),
+			UpdatedAt: address.GetUpdatedAt().AsTime(),
 		}
+
+		addresses = append(addresses, dto)
 	}
 
-	return body.Data, nil
+	return addresses, nil
 }

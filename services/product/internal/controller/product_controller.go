@@ -1,116 +1,123 @@
 package controller
 
 import (
-	"encoding/json"
-	"errors"
-	"net/http"
-	"strconv"
+	"context"
 
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/service"
-	"github.com/zyncc/ecommerce-microservice/services/product/pkg/types"
+	pb "github.com/zyncc/ecommerce-microservice/services/product/pkg/types/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type ProductController struct {
+	pb.UnimplementedProductServiceServer
 	log *zap.Logger
 	svc *service.ProductService
 }
 
 func NewProductController(log *zap.Logger, svc *service.ProductService) *ProductController {
-	return &ProductController{log, svc}
+	return &ProductController{
+		log: log,
+		svc: svc,
+	}
 }
 
-func (c *ProductController) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	var req dto.CreateProductRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+func (c *ProductController) CreateProduct(ctx context.Context, in *pb.CreateProductRequest) (*pb.IDMessage, error) {
+	small := int(in.GetInventory().GetSmall())
+	medium := int(in.GetInventory().GetMedium())
+	large := int(in.GetInventory().GetLarge())
+	extraLarge := int(in.GetInventory().GetExtraLarge())
 
-	productID, err := c.svc.CreateProduct(r.Context(), &req)
+	id, err := c.svc.CreateProduct(ctx, &dto.CreateProductRequest{
+		Title:       in.GetTitle(),
+		Description: in.GetDescription(),
+		Price:       in.GetPrice(),
+		Category:    in.GetCategory(),
+		Inventory: &dto.Inventory{
+			Small:      &small,
+			Medium:     &medium,
+			Large:      &large,
+			ExtraLarge: &extraLarge,
+		},
+	})
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, status.Error(codes.Internal, "failed to create product")
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Product Created", productID)
+	return &pb.IDMessage{
+		Id: id.String(),
+	}, nil
 }
 
-const (
-	defaultLimit = 5
-	maxLimit     = 10
-)
+func (c *ProductController) GetAllProducts(ctx context.Context, in *pb.GetAllProductsRequest) (*pb.GetAllProductsResponse, error) {
+	const (
+		defaultLimit = 5
+		maxLimit     = 10
+	)
 
-func (s *ProductController) GetAllProducts(w http.ResponseWriter, r *http.Request) {
-	limit := defaultLimit
-	if limitQuery := r.URL.Query().Get("limit"); limitQuery != "" {
-		parsed, err := strconv.Atoi(limitQuery)
-		if err != nil || parsed <= 0 {
-			utils.ErrorResponse(w, http.StatusBadRequest, "limit needs to be a positive number")
-			return
-		}
-		if parsed > maxLimit {
-			parsed = maxLimit
-		}
-		limit = parsed
+	limit := int(in.GetLimit())
+
+	switch {
+	case limit == 0:
+		limit = defaultLimit
+	case limit <= 0:
+		return nil, status.Error(codes.InvalidArgument, "limit must be greater than 0")
+	case limit > maxLimit:
+		limit = maxLimit
 	}
 
-	offset := 0
-	if offsetQuery := r.URL.Query().Get("offset"); offsetQuery != "" {
-		parsed, err := strconv.Atoi(offsetQuery)
-		if err != nil || parsed < 0 {
-			utils.ErrorResponse(w, http.StatusBadRequest, "offset needs to be a positive number")
-			return
-		}
-		offset = parsed
+	offset := int(in.GetOffset())
+	if offset < 0 {
+		return nil, status.Error(codes.InvalidArgument, "offset must be greater than or equal to 0")
 	}
 
-	products, err := s.svc.GetAllProducts(r.Context(), limit, offset)
+	productsResp, err := c.svc.GetAllProducts(ctx, limit, offset)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, status.Error(codes.Internal, "failed to fetch all products")
 	}
-	utils.SuccessResponse(w, http.StatusOK, "Fetched all products", &products)
+
+	var products []*pb.Product
+	for _, p := range productsResp {
+		product := &pb.Product{
+			Id:          p.ID.String(),
+			Title:       p.Title,
+			Description: p.Description,
+			Price:       p.Price,
+			Category:    p.Category,
+			CreatedAt:   timestamppb.New(p.CreatedAt),
+			UpdatedAt:   timestamppb.New(p.UpdatedAt),
+		}
+
+		products = append(products, product)
+	}
+
+	return &pb.GetAllProductsResponse{
+		Products: products,
+	}, nil
 }
 
-func (c *ProductController) GetProductByID(w http.ResponseWriter, r *http.Request) {
-	pathID := r.PathValue("id")
-
-	id, err := uuid.Parse(pathID)
+func (c *ProductController) GetProductByID(ctx context.Context, in *pb.IDMessage) (*pb.Product, error) {
+	productID, err := uuid.Parse(in.GetId())
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, "id is not valid")
-		return
+		return nil, status.Error(codes.InvalidArgument, "product id must be a valid uuid")
 	}
 
-	productID, err := c.svc.GetProductByID(r.Context(), id)
+	product, err := c.svc.GetProductByID(ctx, productID)
 	if err != nil {
-		if errors.Is(err, types.ErrProductNotFound) {
-			utils.ErrorResponse(w, http.StatusNotFound, err.Error())
-			return
-		}
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, status.Error(codes.Internal, "failed to get product by id")
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, "Fetched Product", &productID)
-}
-
-func (c *ProductController) DeleteProduct(w http.ResponseWriter, r *http.Request) {
-	pathID := r.PathValue("id")
-
-	id, err := uuid.Parse(pathID)
-	if err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, "id is not valid")
-		return
-	}
-
-	if err := c.svc.DeleteProduct(r.Context(), id); err != nil {
-		utils.ErrorResponse(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.SuccessResponse[any](w, http.StatusOK, "Deleted Product", nil)
+	return &pb.Product{
+		Id:          product.ID.String(),
+		Title:       product.Title,
+		Description: product.Description,
+		Price:       product.Price,
+		Category:    product.Category,
+		CreatedAt:   timestamppb.New(product.CreatedAt),
+		UpdatedAt:   timestamppb.New(product.UpdatedAt),
+	}, nil
 }

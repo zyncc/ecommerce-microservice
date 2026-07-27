@@ -5,8 +5,6 @@ go 1.26.4
 require (
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/go-chi/chi/v5 v5.3.0
-	github.com/go-chi/cors v1.2.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
@@ -14,6 +12,8 @@ require (
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/zyncc/ecommerce-microservice/services/api-gateway v0.0.0-20260630154535-f9e76d8496df
 	go.uber.org/zap v1.28.0
+	google.golang.org/grpc v1.82.1
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
@@ -30,6 +30,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 )
 
 require (

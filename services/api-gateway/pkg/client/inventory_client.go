@@ -1,152 +1,57 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
-	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
+	pb "github.com/zyncc/ecommerce-microservice/services/inventory/pkg/types/proto"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-type InventoryClient struct {
+type InventoryClient interface {
+	FetchInventoryByProductID(ctx context.Context, productID uuid.UUID) (dto.InventoryResponse, error)
+}
+
+type GRPCInventoryClient struct {
 	log             *zap.Logger
 	inventorySvcURL string
-	httpClient      *http.Client
+	client          pb.InventoryServiceClient
 }
 
-func NewInventoryClient(log *zap.Logger, inventorySvcURL string, httpClient *http.Client) *InventoryClient {
-	return &InventoryClient{
-		log,
-		inventorySvcURL,
-		httpClient,
+func NewGRPCInventoryClient(log *zap.Logger, addr string) (*GRPCInventoryClient, error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
 	}
+
+	return &GRPCInventoryClient{
+		log:             log,
+		inventorySvcURL: addr,
+		client:          pb.NewInventoryServiceClient(conn),
+	}, nil
 }
 
-func (c *InventoryClient) CreateInventory(ctx context.Context, req *dto.CreateInventoryRequest) (uuid.UUID, error) {
-	reqBody, err := json.Marshal(req)
+func (c *GRPCInventoryClient) FetchInventoryByProductID(ctx context.Context, productID uuid.UUID) (dto.InventoryResponse, error) {
+	resp, err := c.client.GetInventoryByProductID(ctx, &pb.IDMessage{Id: productID.String()})
 	if err != nil {
-		c.log.Error("failed to marshal json data", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+		return dto.InventoryResponse{}, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/api/v1/inventory", c.inventorySvcURL), bytes.NewReader(reqBody))
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
+	ID, _ := uuid.Parse(resp.GetId())
+	productID, _ = uuid.Parse(resp.GetProductId())
+	dto := dto.InventoryResponse{
+		ID:         ID,
+		ProductID:  productID,
+		Small:      int(resp.GetSmall()),
+		Medium:     int(resp.GetMedium()),
+		Large:      int(resp.GetLarge()),
+		ExtraLarge: int(resp.GetExtraLarge()),
+		CreatedAt:  resp.GetCreatedAt().AsTime(),
+		UpdatedAt:  resp.GetUpdatedAt().AsTime(),
 	}
 
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[uuid.UUID]
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return uuid.Nil, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"inventory service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return uuid.Nil, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
-}
-
-func (c *InventoryClient) FetchInventoryByProductID(ctx context.Context, productID uuid.UUID) (dto.InventoryResponse, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v1/inventory/%s", c.inventorySvcURL, productID), nil)
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return dto.InventoryResponse{}, utils.ErrSomethingWentWrong
-	}
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return dto.InventoryResponse{}, utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[dto.InventoryResponse]
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return dto.InventoryResponse{}, utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"inventory service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return dto.InventoryResponse{}, &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
-	}
-
-	return body.Data, nil
-}
-
-func (c *InventoryClient) UpdateInventory(ctx context.Context, req dto.UpdateInventoryRequest) error {
-	reqBody, err := json.Marshal(req)
-	if err != nil {
-		c.log.Error("failed to marshal json data", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPut, fmt.Sprintf("%s/api/v1/inventory", c.inventorySvcURL), bytes.NewReader(reqBody))
-	if err != nil {
-		c.log.Error("failed to create http request", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		c.log.Error("failed to send http request", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-	defer resp.Body.Close()
-
-	var body utils.Success[any]
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
-		c.log.Error("failed to decode response body", zap.Error(err))
-		return utils.ErrSomethingWentWrong
-	}
-
-	if !body.Success {
-		c.log.Error(
-			"inventory service returned error",
-			zap.Int("status", body.Code),
-			zap.String("message", body.Message),
-		)
-		return &utils.HTTPError{
-			Status:  resp.StatusCode,
-			Message: body.Message,
-		}
-	}
-
-	return nil
+	return dto, nil
 }

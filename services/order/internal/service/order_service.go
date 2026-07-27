@@ -20,20 +20,20 @@ import (
 type OrderService struct {
 	log             *zap.Logger
 	repo            *repository.OrderRepository
-	redis           *repository.OrderCacheRepository
-	authClient      *client.AuthClient
-	productClient   *client.ProductClient
-	inventoryClient *client.InventoryClient
+	redis           repository.OrderCacheRepository
+	authClient      client.AuthClient
+	productClient   client.ProductClient
+	inventoryClient client.InventoryClient
 }
 
-func NewOrderService(log *zap.Logger, repo *repository.OrderRepository, cache *repository.OrderCacheRepository, authClient *client.AuthClient, productClient *client.ProductClient, inventoryClient *client.InventoryClient) *OrderService {
+func NewOrderService(log *zap.Logger, repo *repository.OrderRepository, cache repository.OrderCacheRepository, authClient client.AuthClient, productClient client.ProductClient, inventoryClient client.InventoryClient) *OrderService {
 	return &OrderService{
-		log,
-		repo,
-		cache,
-		authClient,
-		productClient,
-		inventoryClient,
+		log:             log,
+		repo:            repo,
+		redis:           cache,
+		authClient:      authClient,
+		productClient:   productClient,
+		inventoryClient: inventoryClient,
 	}
 }
 
@@ -140,65 +140,22 @@ func (s *OrderService) CreateOrder(ctx context.Context, req dto.CreateOrderReque
 	return id, nil
 }
 
-func (s *OrderService) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (dto.FindOrderByIDResponse, error) {
+func (s *OrderService) FindOrderByOrderID(ctx context.Context, orderID uuid.UUID) (model.OrderWithItems, error) {
 	order, err := s.redis.GetOrderByID(ctx, orderID)
 	if err == nil {
 		s.log.Info("cache hit for find by order id")
-		return mapOrderToResponse(order), nil
+		return order, nil
 	}
 	s.log.Info("cache miss for find by order id", zap.Error(err))
 
 	order, err = s.repo.GetOrder(ctx, orderID)
 	if err != nil {
-		return dto.FindOrderByIDResponse{}, err
+		return model.OrderWithItems{}, err
 	}
 
 	if err := s.redis.SetOrderByID(ctx, order.ID, order); err != nil {
 		s.log.Error("failed to set cache for order by id", zap.Error(err))
 	}
 
-	orderResp := mapOrderToResponse(order)
-
-	return orderResp, nil
-}
-
-func mapOrderToResponse(order model.OrderWithItems) dto.FindOrderByIDResponse {
-	var orderItemsResp []dto.OrderItems
-
-	for _, item := range order.OrderItems {
-		respItem := dto.OrderItems{
-			ID:        item.ID,
-			OrderID:   item.OrderID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			Size:      item.Size,
-			Price:     item.Price,
-			CreatedAt: item.CreatedAt,
-			UpdatedAt: item.UpdatedAt,
-		}
-
-		orderItemsResp = append(orderItemsResp, respItem)
-	}
-
-	orderResp := dto.FindOrderByIDResponse{
-		ID:          order.ID,
-		UserID:      order.UserID,
-		Subtotal:    order.Subtotal,
-		OrderTotal:  order.OrderTotal,
-		OrderStatus: order.OrderStatus,
-		FirstName:   order.FirstName,
-		LastName:    order.LastName,
-		Email:       order.Email,
-		Phone:       order.Phone,
-		Address1:    order.Address1,
-		Address2:    order.Address2,
-		City:        order.City,
-		State:       order.State,
-		Zip:         order.Zip,
-		CreatedAt:   order.CreatedAt,
-		UpdatedAt:   order.UpdatedAt,
-		OrderItems:  orderItemsResp,
-	}
-
-	return orderResp
+	return order, nil
 }

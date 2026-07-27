@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
@@ -13,10 +12,10 @@ import (
 
 type PaymentController struct {
 	log           *zap.Logger
-	paymentClient *client.PaymentClient
+	paymentClient client.PaymentClient
 }
 
-func NewPaymentController(log *zap.Logger, paymentClient *client.PaymentClient) *PaymentController {
+func NewPaymentController(log *zap.Logger, paymentClient client.PaymentClient) *PaymentController {
 	return &PaymentController{
 		log,
 		paymentClient,
@@ -49,11 +48,6 @@ func (c *PaymentController) PaymentWebhook(w http.ResponseWriter, r *http.Reques
 
 	err := c.paymentClient.PaymentWebhook(r.Context(), req, razorpaySignature)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to create product", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		c.log.Error("payment webhook failed", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return

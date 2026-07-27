@@ -16,7 +16,7 @@ type OrderItem struct {
 	ProductID uuid.UUID `json:"product_id"`
 	Quantity  int       `json:"quantity"`
 	Size      string    `json:"size"`
-	Price     float64
+	Price     float64   `json:"price"`
 }
 
 type FindOrderByIDResponse struct {

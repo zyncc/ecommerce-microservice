@@ -11,11 +11,11 @@ import (
 )
 
 type ShipmentEventHandler struct {
-	shipmentRepo *repository.ShipmentRepository
+	shipmentRepo repository.ShipmentRepo
 	log          *zap.Logger
 }
 
-func NewShipmentEventHandler(log *zap.Logger, shipmentRepo *repository.ShipmentRepository) *ShipmentEventHandler {
+func NewShipmentEventHandler(log *zap.Logger, shipmentRepo repository.ShipmentRepo) *ShipmentEventHandler {
 	return &ShipmentEventHandler{
 		shipmentRepo,
 		log,
@@ -67,7 +67,7 @@ type ShipmentConsumer struct {
 	Brokers      []string
 	Topics       []string
 	GroupID      string
-	ShipmentRepo *repository.ShipmentRepository
+	ShipmentRepo repository.ShipmentRepo
 	Log          *zap.Logger
 }
 

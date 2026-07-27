@@ -23,12 +23,7 @@ func NewProductService(log *zap.Logger, repo *repository.ProductRepository, cach
 }
 
 func (s *ProductService) CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (uuid.UUID, error) {
-	id, err := s.repo.CreateProduct(ctx, &model.CreateProductParams{
-		Title:       req.Title,
-		Description: req.Description,
-		Price:       req.Price,
-		Category:    req.Category,
-	})
+	id, err := s.repo.CreateProduct(ctx, req)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -61,8 +56,4 @@ func (s *ProductService) GetProductByID(ctx context.Context, id uuid.UUID) (mode
 	}
 
 	return product, nil
-}
-
-func (s *ProductService) DeleteProduct(ctx context.Context, id uuid.UUID) error {
-	return s.repo.DeleteProduct(ctx, id)
 }

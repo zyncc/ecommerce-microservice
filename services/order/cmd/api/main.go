@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
+	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/config"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/consumer"
+	"github.com/zyncc/ecommerce-microservice/services/order/internal/controller"
+	grpcserver "github.com/zyncc/ecommerce-microservice/services/order/internal/grpc"
 	"github.com/zyncc/ecommerce-microservice/services/order/internal/repository"
-	"github.com/zyncc/ecommerce-microservice/services/order/internal/server"
+	"github.com/zyncc/ecommerce-microservice/services/order/internal/service"
 	"github.com/zyncc/ecommerce-microservice/services/order/pkg/types"
 	"go.uber.org/zap"
 )
@@ -43,9 +47,38 @@ func main() {
 	defer kafkaProducer.Close()
 	log.Info("Kafka Producer Running")
 
-	apiServer := server.NewServer(log, env, pool, redis)
+	// clients
+	grpcAuthClient, err := client.NewGRPCAuthClient(log, env.AuthServiceURL)
+	if err != nil {
+		log.Fatal("failed to initialize auth grcp client", zap.Error(err))
+	}
 
+	productClient, err := client.NewGRPCProductClient(log, env.ProductServiceURL)
+	if err != nil {
+		log.Fatal("failed to initialize product grcp client", zap.Error(err))
+	}
+
+	inventoryClient, err := client.NewGRPCInventoryClient(log, env.InventoryServiceURL)
+	if err != nil {
+		log.Fatal("failed to initialize inventory grcp client", zap.Error(err))
+	}
+
+	// repository
 	orderRepo := repository.NewOrderRepository(log, pool)
+	orderCache := repository.NewOrderCacheRepository(log, redis)
+
+	// services
+	orderService := service.NewOrderService(log, orderRepo, orderCache, grpcAuthClient, productClient, inventoryClient)
+
+	// controllers
+	orderController := controller.NewOrderController(log, orderService)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", env.Port))
+	if err != nil {
+		log.Fatal("failed to start grpc server", zap.Error(err))
+	}
+
+	grpcServer := grpcserver.NewServer(log, orderController)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -67,29 +100,11 @@ func main() {
 	})
 
 	wg.Add(1)
-	go gracefulShutdown(ctx, apiServer, &wg, log)
 
 	log.Info("Server running", zap.Int("port", env.Port))
-	if err := apiServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	if err := grpcServer.Serve(lis); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal("Failed to start server", zap.Error(err))
 	}
 
 	wg.Wait()
-	log.Info("shutdown complete")
-}
-
-func gracefulShutdown(ctx context.Context, apiServer *http.Server, wg *sync.WaitGroup, log *zap.Logger) {
-	defer wg.Done()
-
-	<-ctx.Done()
-	log.Info("shutting down gracefully, press Ctrl+C again to force")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := apiServer.Shutdown(shutdownCtx); err != nil {
-		log.Error("Server forced to shutdown with error", zap.Error(err))
-	}
-
-	log.Info("Server exiting")
 }

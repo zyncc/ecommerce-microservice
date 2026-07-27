@@ -1,0 +1,23 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: Kafka
+metadata:
+  name: kafka
+  namespace: kafka
+spec:
+  replicas: 1
+
+  image:
+    application: confluentinc/cp-server:8.1.0
+    init: confluentinc/confluent-init-container:2.13.0
+
+  dataVolumeCapacity: 10Gi
+
+  listeners:
+    internal:
+      authentication:
+        type: plain
+
+  dependencies:
+    kRaftController:
+      clusterRef:
+        name: kraft

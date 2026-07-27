@@ -1,14 +1,14 @@
 package main
 
 import (
-	"context"
-	"net/http"
-	"os/signal"
-	"syscall"
-	"time"
+	"fmt"
+	"net"
 
 	"github.com/zyncc/ecommerce-microservice/services/product/internal/config"
-	"github.com/zyncc/ecommerce-microservice/services/product/internal/server"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/controller"
+	grpcserver "github.com/zyncc/ecommerce-microservice/services/product/internal/grpc"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/repository"
+	"github.com/zyncc/ecommerce-microservice/services/product/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -24,51 +24,33 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect to database", zap.Error(err))
 	}
+	defer pool.Close()
 
 	// redis
 	redis := config.ConnectRedis(env)
 	defer redis.Close()
 
-	kafkaProducer, err := config.ConnectProducer([]string{env.KafkaBroker})
+	// repository
+	productRepo := repository.NewProductRepository(log, pool)
+
+	// cache
+	productCacheRepo := repository.NewProductCacheRepository(log, redis)
+
+	// services
+	productService := service.NewProductService(log, productRepo, productCacheRepo)
+
+	// controllers
+	productController := controller.NewProductController(log, productService)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", env.Port))
 	if err != nil {
-		log.Fatal("failed to connect to kafka", zap.Error(err))
+		log.Fatal("failed to start grpc server", zap.Error(err))
 	}
 
-	server := server.NewServer(log, env, pool, redis, kafkaProducer)
-
-	// Create a done channel to signal when the shutdown is complete
-	done := make(chan bool, 1)
-
-	// Run graceful shutdown in a separate goroutine
-	go gracefulShutdown(server, done, log)
+	grpcServer := grpcserver.NewServer(log, productController)
 
 	log.Info("Server running", zap.Int("port", env.Port))
-	if err := server.ListenAndServe(); err != nil {
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatal("Failed to start server", zap.Error(err))
 	}
-}
-
-func gracefulShutdown(apiServer *http.Server, done chan bool, log *zap.Logger) {
-	// Create context that listens for the interrupt signal from the OS.
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	// Listen for the interrupt signal.
-	<-ctx.Done()
-
-	log.Info("shutting down gracefully, press Ctrl+C again to force")
-	stop() // Allow Ctrl+C to force shutdown
-
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := apiServer.Shutdown(ctx); err != nil {
-		log.Error("Server forced to shutdown with error", zap.Error(err))
-	}
-
-	log.Info("Server exiting")
-
-	// Notify the main goroutine that the shutdown is complete
-	done <- true
 }

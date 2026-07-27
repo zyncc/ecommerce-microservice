@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"time"
 
@@ -11,16 +10,17 @@ import (
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/types/dto"
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/utils"
 	"github.com/zyncc/ecommerce-microservice/services/auth/pkg/types"
+	"google.golang.org/grpc/status"
 
 	"go.uber.org/zap"
 )
 
 type AuthController struct {
 	log        *zap.Logger
-	authClient *client.AuthClient
+	authClient client.AuthClient
 }
 
-func NewAuthController(log *zap.Logger, authClient *client.AuthClient) *AuthController {
+func NewAuthController(log *zap.Logger, authClient client.AuthClient) *AuthController {
 	return &AuthController{
 		log,
 		authClient,
@@ -53,8 +53,8 @@ func (c *AuthController) SignUp(w http.ResponseWriter, r *http.Request) {
 
 	id, err := c.authClient.SignUp(r.Context(), &signUpReq)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+		if status, ok := status.FromError(err); ok {
+			utils.ErrorResponse(w, utils.GRPCToHTTP(status.Code()), status.Message())
 			return
 		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
@@ -90,8 +90,8 @@ func (c *AuthController) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	response, err := c.authClient.SignIn(r.Context(), &signInReq)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+		if status, ok := status.FromError(err); ok {
+			utils.ErrorResponse(w, utils.GRPCToHTTP(status.Code()), status.Message())
 			return
 		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
@@ -172,8 +172,8 @@ func (c *AuthController) GetSession(w http.ResponseWriter, r *http.Request) {
 func (c *AuthController) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	token, err := c.authClient.RefreshToken(r.Context(), r)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+		if status, ok := status.FromError(err); ok {
+			utils.ErrorResponse(w, utils.GRPCToHTTP(status.Code()), status.Message())
 			return
 		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
@@ -228,8 +228,8 @@ func (c *AuthController) CreateAddress(w http.ResponseWriter, r *http.Request) {
 
 	id, err := c.authClient.CreateAddress(r.Context(), req)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+		if status, ok := status.FromError(err); ok {
+			utils.ErrorResponse(w, utils.GRPCToHTTP(status.Code()), status.Message())
 			return
 		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
@@ -268,8 +268,8 @@ func (c *AuthController) GetAddressByID(w http.ResponseWriter, r *http.Request) 
 
 	address, err := c.authClient.GetAddressByID(r.Context(), parsedID)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+		if status, ok := status.FromError(err); ok {
+			utils.ErrorResponse(w, utils.GRPCToHTTP(status.Code()), status.Message())
 			return
 		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
@@ -318,8 +318,8 @@ func (c *AuthController) FetchAllAddresses(w http.ResponseWriter, r *http.Reques
 
 	addresses, err := c.authClient.GetAllAddresses(r.Context(), id)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
+		if status, ok := status.FromError(err); ok {
+			utils.ErrorResponse(w, utils.GRPCToHTTP(status.Code()), status.Message())
 			return
 		}
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")

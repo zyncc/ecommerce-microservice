@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
@@ -12,10 +13,10 @@ import (
 
 type AuthMiddleware struct {
 	log        *zap.Logger
-	authClient *client.AuthClient
+	authClient client.AuthClient
 }
 
-func NewAuthMiddleware(log *zap.Logger, authClient *client.AuthClient) *AuthMiddleware {
+func NewAuthMiddleware(log *zap.Logger, authClient client.AuthClient) *AuthMiddleware {
 	return &AuthMiddleware{
 		log:        log,
 		authClient: authClient,
@@ -29,6 +30,8 @@ func (m *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			utils.AuthorizationErrorResponse(w)
 			return
 		}
+
+		fmt.Println(session.Name)
 
 		ctx := context.WithValue(r.Context(), types.SessionContextKey, session)
 		next.ServeHTTP(w, r.WithContext(ctx))

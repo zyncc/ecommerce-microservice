@@ -13,11 +13,11 @@ import (
 
 type NotificationEventHandler struct {
 	log         *zap.Logger
-	orderClient *client.OrderClient
+	orderClient client.OrderClient
 	env         *config.EnvConfig
 }
 
-func NewNotificationEventHandler(log *zap.Logger, orderClient *client.OrderClient, env *config.EnvConfig) *NotificationEventHandler {
+func NewNotificationEventHandler(log *zap.Logger, orderClient client.OrderClient, env *config.EnvConfig) *NotificationEventHandler {
 	return &NotificationEventHandler{
 		log,
 		orderClient,
@@ -68,7 +68,7 @@ func (h *NotificationEventHandler) processMessage(ctx context.Context, msg *sara
 
 type NotificationConsumer struct {
 	Brokers     []string
-	OrderClient *client.OrderClient
+	OrderClient client.OrderClient
 	Env         *config.EnvConfig
 	Topics      []string
 	GroupID     string

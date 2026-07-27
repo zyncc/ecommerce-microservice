@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -14,10 +13,10 @@ import (
 
 type ShipmentController struct {
 	log            *zap.Logger
-	shipmentClient *client.ShipmentClient
+	shipmentClient client.ShipmentClient
 }
 
-func NewShipmentController(log *zap.Logger, shipmentClient *client.ShipmentClient) *ShipmentController {
+func NewShipmentController(log *zap.Logger, shipmentClient client.ShipmentClient) *ShipmentController {
 	return &ShipmentController{
 		log,
 		shipmentClient,
@@ -50,11 +49,6 @@ func (c *ShipmentController) ShipmentWebhook(w http.ResponseWriter, r *http.Requ
 
 	err := c.shipmentClient.ShipmentWebhook(r.Context(), req, shipmentSignature)
 	if err != nil {
-		if httpErr, ok := errors.AsType[*utils.HTTPError](err); ok {
-			c.log.Error("failed to create product", zap.Error(httpErr))
-			utils.ErrorResponse(w, httpErr.Status, httpErr.Message)
-			return
-		}
 		c.log.Error("payment webhook failed", zap.Error(err))
 		utils.ErrorResponse(w, http.StatusInternalServerError, "Something went wrong")
 		return

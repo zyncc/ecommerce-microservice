@@ -16,12 +16,16 @@ import (
 
 type ShipmentService struct {
 	log           *zap.Logger
-	shipmentRepo  *repository.ShipmentRepository
+	shipmentRepo  repository.ShipmentRepo
 	kafkaProducer sarama.SyncProducer
 }
 
-func NewShipmentService(log *zap.Logger, shipmentRepo *repository.ShipmentRepository, kafkaProducer sarama.SyncProducer) *ShipmentService {
-	return &ShipmentService{log, shipmentRepo, kafkaProducer}
+func NewShipmentService(log *zap.Logger, shipmentRepo repository.ShipmentRepo, kafkaProducer sarama.SyncProducer) *ShipmentService {
+	return &ShipmentService{
+		log:           log,
+		shipmentRepo:  shipmentRepo,
+		kafkaProducer: kafkaProducer,
+	}
 }
 
 func (s *ShipmentService) ShipmentUpdateWebhook(ctx context.Context, req dto.ShipmentWebhookRequest) error {
