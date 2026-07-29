@@ -2,15 +2,6 @@
 
 set -euo pipefail
 
-echo "Installing NGINX Ingress Controller..."
-
-helm upgrade --install ingress-nginx \
-    ingress-nginx/ingress-nginx \
-    -n ingress-nginx \
-    --create-namespace \
-    --wait \
-    --timeout=10m
-
 echo "Installing Confluent for Kubernetes Operator..."
 
 helm upgrade --install kafka \
@@ -28,6 +19,15 @@ kubectl rollout status deployment/confluent-operator \
 echo "Deploying Kafka Cluster..."
 
 kubectl apply -R -f helm/kafka
+
+echo "Installing NGINX Ingress Controller..."
+
+helm upgrade --install ingress-nginx \
+    ingress-nginx/ingress-nginx \
+    -n ingress-nginx \
+    --create-namespace \
+    --wait \
+    --timeout=10m
 
 echo "Installing PostgreSQL..."
 
