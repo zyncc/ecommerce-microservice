@@ -185,18 +185,18 @@ func (r *CreateAddressRequest) Validate() map[string][]string {
 }
 
 type AddressResponse struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	FirstName string
-	LastName  *string
-	Email     string
-	Phone     string
-	Address1  string
-	Address2  *string
-	City      string
-	State     string
-	Zip       string
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	FirstName string    `json:"first_name"`
+	LastName  *string   `json:"last_name"`
+	Email     string    `json:"email"`
+	Phone     string    `json:"phone"`
+	Address1  string    `json:"address_1"`
+	Address2  *string   `json:"address_2"`
+	City      string    `json:"city"`
+	State     string    `json:"state"`
+	Zip       string    `json:"zip"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

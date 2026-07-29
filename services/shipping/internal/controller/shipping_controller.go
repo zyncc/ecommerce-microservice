@@ -41,6 +41,7 @@ func (c *ShipmentController) ShipmentWebhook(ctx context.Context, in *pb.Webhook
 
 	return &emptypb.Empty{}, nil
 }
+
 func (c *ShipmentController) GetShipmentByTrackingID(ctx context.Context, in *pb.IDMessage) (*pb.Shipment, error) {
 	trackingID, _ := uuid.Parse(in.GetId())
 	shipment, err := c.svc.GetShipmentByTrackingID(ctx, trackingID)

@@ -6,6 +6,6 @@ metadata:
 data:
   PORT: "{{ .Values.order.port }}"
   APP_ENV: "production"
-  AUTH_SERVICE_URL: "http://auth:{{ .Values.auth.port }}"
-  PRODUCT_SERVICE_URL: "http://product:{{ .Values.product.port }}"
-  INVENTORY_SERVICE_URL: "http://inventory:{{ .Values.inventory.port }}"
+  AUTH_SERVICE_URL: "auth:{{ .Values.auth.port }}"
+  PRODUCT_SERVICE_URL: "product:{{ .Values.product.port }}"
+  INVENTORY_SERVICE_URL: "inventory:{{ .Values.inventory.port }}"

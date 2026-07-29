@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/zyncc/ecommerce-microservice/services/api-gateway/pkg/client"
@@ -30,8 +29,6 @@ func (m *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 			utils.AuthorizationErrorResponse(w)
 			return
 		}
-
-		fmt.Println(session.Name)
 
 		ctx := context.WithValue(r.Context(), types.SessionContextKey, session)
 		next.ServeHTTP(w, r.WithContext(ctx))

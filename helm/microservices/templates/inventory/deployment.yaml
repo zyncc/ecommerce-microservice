@@ -42,16 +42,14 @@ spec:
                 name: inventory-secret
 
           livenessProbe:
-            httpGet:
-              path: /healthz
+            grpc:
               port: {{ .Values.inventory.port }}
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
 
           readinessProbe:
-            httpGet:
-              path: /healthz
+            grpc:
               port: {{ .Values.inventory.port }}
             initialDelaySeconds: 5
             periodSeconds: 10

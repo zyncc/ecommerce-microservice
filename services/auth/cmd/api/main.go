@@ -10,6 +10,8 @@ import (
 	"github.com/zyncc/ecommerce-microservice/services/auth/internal/repository"
 	"github.com/zyncc/ecommerce-microservice/services/auth/internal/service"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func main() {
@@ -50,6 +52,9 @@ func main() {
 	}
 
 	grpcServer := grpcserver.NewServer(log, authController)
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	log.Info("Server running", zap.Int("port", env.Port))
 	if err := grpcServer.Serve(lis); err != nil {
